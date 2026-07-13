@@ -3965,9 +3965,17 @@
       let bytes=[];
       { const roleEn={melody:(skeletonMode?'Melody (GUIDE - replace or mute)':'Melody'),counter:'Counter Melody',piano:'Piano',strings:'Strings',winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (section top)':'Winds'),bass:'Bass',pad:'Pad (ambient layer)',sub:'Sub Bass (L4+)',riser:'FX Riser (pre-drop)',horns:'French Horns',lowbrass:'Low Brass (Tbn/Tuba)',harp:'Harp',brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (section mid)':'Brass (long tones)'),brass2:'Trombones (section low)',brass3:'Trumpets (section top)',winds2:'Oboe (section mid)',winds3:'Bassoon (section low)',choir:'Choir (Aahs)',timpani:'Timpani',cbass:'Contrabass (low str)'};
         const GMN={0:'Grand Piano',4:'E.Piano',6:'Harpsichord',11:'Vibraphone',73:'Flute',75:'Pan Flute',40:'Violin',42:'Cello',46:'Harp',48:'String Ens',56:'Trumpet',65:'Alto Sax',68:'Oboe',71:'Clarinet',32:'Acoustic Bass',33:'Finger Bass',35:'Fretless Bass',89:'Warm Pad',38:'Synth Bass',119:'Reverse Cymbal',60:'French Horn',57:'Trombone',58:'Tuba',52:'Choir Aahs',47:'Timpani',43:'Contrabass',44:'Tremolo Strings',24:'Nylon Guitar',104:'Sitar',70:'Bassoon'};
-        const nm=(grp.ch===9)?'Drums / Perc':((roleEn[grp.key]||grp.key)+' - '+(GMN[grp.gm]||('GM '+grp.gm)));
+        // 추천 악기(트랙명 앞) + 느낌(캐릭터). 실제 제품이 없어도 '어떤 느낌 악기'인지 알 수 있게.
+        const REC_SOUND={ piano:'Felt Piano', melody:(INST.melody.gm===0?'Felt Piano':(GMN[INST.melody.gm]||'Lead')), counter:'Solo Cello', strings:'Legato Strings', winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (sec)':'Flute/Oboe'), bass:'Warm Bass', pad:'Warm Pad', sub:'Sine Sub', riser:'Riser FX',
+          horns:'French Horns', lowbrass:'Trombone/Tuba', harp:'Harp', brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (sec)':'Brass'), brass2:'Trombones', brass3:'Trumpets', winds2:'Oboe', winds3:'Bassoon', choir:'Choir Aahs', timpani:'Timpani', cbass:'Contrabass' };
+        const REC_FEEL={ piano:'warm, intimate, soft-hammer (felt) - close mic', melody:'expressive, singing lead - sits above the mix', counter:'warm, mournful inner voice', strings:'lush, singing, slow-bow swell - not staccato',
+          winds:'breathy, airy, agile', bass:'round, warm, foundational - felt not heard', pad:'soft, wide, atmospheric wash', sub:'pure low weight (mono)', riser:'rising tension into the drop',
+          horns:'noble, broad, warm - long notes, no fast runs', lowbrass:'heavy, weighty - power at climax only', harp:'magical, flowing, delicate arpeggios', brass:'bold, broad, sustained', brass2:'low weight, glue', brass3:'bright, brilliant, fanfare', winds2:'singing, plaintive (oboe)', winds3:'dark, reedy low support', choir:'vast, sacred, sustained wall', timpani:'deep tuned hits - follows harmony', cbass:'the floor of the orchestra' };
+        const soundFront=(grp.ch===9)?'Drum Kit':(REC_SOUND[grp.key]||GMN[grp.gm]||('GM '+grp.gm));
+        const roleTag=(grp.ch===9)?'Drums / Perc':(roleEn[grp.key]||grp.key);
+        const nm=(grp.ch===9)?roleTag:(soundFront.replace(/ \(sec\)$/,'')===roleTag.replace(/ \(section[^)]*\)$/,'')?roleTag:(soundFront+' | '+roleTag)); // 추천 악기가 맨 앞(중복이면 역할만)
         const nb=Array.from(new TextEncoder().encode(nm));
-        bytes=bytes.concat([0,0xFF,0x03]).concat(vlq(nb.length)).concat(nb); // 트랙 이름(영문 — DAW 호환)
+        bytes=bytes.concat([0,0xFF,0x03]).concat(vlq(nb.length)).concat(nb);
         // 트랙별 로직 추천(FF01 텍스트) — 이벤트 리스트/트랙에서 열람. ASCII만.
         const famKey=(function(){ if(CINE.has(gsel))return'Cin'; if(['newage','lyric','lyricPenta','lyricMid','lyricMinyo','lofi','gugak','quartal'].indexOf(gsel)>=0)return'Amb';
           if(['pop','ballad','citypop','neosoul','kids'].indexOf(gsel)>=0)return'Pop'; if(['jazz','bossa','blues','gypsy'].indexOf(gsel)>=0)return'Jazz';
@@ -3993,7 +4001,8 @@
           choir:'Sound: LABS Choir / Spitfire | FX: EQ(HPF200,10k +1) | Send: Orch Hall (most wet)',
           timpani:'Sound: Sampler Timpani (pitched!) / BBC Perc | FX: EQ(60-80 -2,5k +1) | Send: Orch Hall',
           cbass:'Sound: Studio Strings Bass / BBC | FX: EQ(HPF40)>Comp | Send: Orch Hall' };
-        let rec=REC[grp.key]||('Sound: '+(GMN[grp.gm]||'GM '+grp.gm)); rec='['+famKey+'] '+rec;
+        let rec=REC[grp.key]||('Sound: '+(GMN[grp.gm]||'GM '+grp.gm)); const feel=(grp.ch===9)?'punchy, tight groove':(REC_FEEL[grp.key]||'');
+        rec='['+famKey+'] '+(feel?('Feel: '+feel+' | '):'')+rec;
         const rb2=Array.from(new TextEncoder().encode(rec));
         bytes=bytes.concat([0,0xFF,0x01]).concat(vlq(rb2.length)).concat(rb2); }
       if(grp.ch!==9) bytes=bytes.concat([0,0xC0|grp.ch,grp.gm&0x7f]);
