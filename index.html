@@ -1703,7 +1703,16 @@
     hungarian:{kick:[0,8],snare:[4,12],hat:[0,4,6,8,12,14]},
     phrygdom:{kick:[0,6,8],snare:[3,11],hat:[0,3,6,8,11,14]},
     gypsy:{kick:[0,8],snare:[4,12],hat:[0,4,6,8,12,14]},
-    tango:{kick:[0,4,8,12],snare:[0,8],hat:[0,4,8,12]}
+    tango:{kick:[0,4,8,12],snare:[0,8],hat:[0,4,8,12]},
+    kids:{kick:[0,8],snare:[4,12],hat:[0,4,8,12]},
+    lydian:{kick:[0,8],snare:[4,12],hat:[0,2,4,6,8,10,12,14],hatOpen:[14]},
+    doubleharm:{kick:[0,8],snare:[4,12],hat:[0,4,6,8,12,14]},
+    lyric:{kick:[0],snare:[8],hat:[0,4,8,12]},
+    lyricPenta:{kick:[0],snare:[8],hat:[0,8]},
+    lyricMid:{kick:[0,8],snare:[4,12],hat:[0,4,8,12]},
+    lyricMinyo:{kick:[0,8],snare:[4,12],hat:[0,2,4,6,8,10,12,14]},
+    gugak:{kick:[0,8],snare:[4,12],hat:[0,4,8,12]},
+    quartal:{kick:[0],snare:[8],hat:[0,4,8,12]}
   };
   const SWING={ jazz:0.6, blues:0.66, lofi:0.5, neosoul:0.4, hungarian:0.56, gypsy:0.55 };
   function slotTime(slot,six,sw){ let tm=slot*six;
@@ -3021,7 +3030,7 @@
       const guide=[8,7,6,5,6,5,4,3]; // 라멘트: 전체 윤곽이 계단식 하행
       for(let b=0;b<N;b++){ const g=guide[b%guide.length];
         const tgt=snapStrong(deg(g),b); const app=tgt+((minor&&(g===6||g===3))?1:2); // 계류: 한 음 위 아포자투라
-        put(b,0,app,0.28); put(b,0.3,tgt,0.5); // 한숨(강박 비화성음 → 하행 해결)
+        if(RND()<0.5){ put(b,0,app,0.1875); put(b,0.1875,tgt,0.55); } else put(b,0,tgt,0.72); // 계류 약화: 절반만 짧은 아포자투라, 나머지는 협화음 직접
         if(RND()<0.45 && b<N-1) put(b,0.82,tgt-((g===5)?2:1),0.14); } } // 다음 마디로 흘러가는 경과음
     else { // cineJoy
       for(let b=0;b<N;b++){ const ph=b%2;
@@ -3031,7 +3040,11 @@
           put(b,0.5,deg(2),0.22); put(b,0.75,snapStrong(deg(1),b),0.25);
           if(RND()<0.4) put(b,0.9375,deg(5),0.06); } } } // 장난스런 꾸밈 픽업
     if(mel.length && mood!=='cineTension'){ const last=mel[mel.length-1]; last.midi=snapStrong(last.midi,N-1); } // 종지 안정(긴장은 미해결 유지)
-    return mel; }
+    // 박자 정렬: 시네마틱 온셋을 1/16 마디 격자에 스냅(팡파레·꾸밈음 격자 이탈 방지)
+    mel.forEach(n=>{ let ps=Math.round(n.pos*16)/16; if(ps>=1)ps=0.9375; if(ps<0)ps=0; n.pos=ps; n.dur=Math.max(0.0625,Math.round((n.dur||0.25)*16)/16); });
+    mel.sort((a,b)=>(a.bar-b.bar)||(a.pos-b.pos));
+    for(let i3=1;i3<mel.length;i3++){ if(mel[i3].bar===mel[i3-1].bar && Math.abs(mel[i3].pos-mel[i3-1].pos)<1e-6){ const np=mel[i3].pos+0.0625; if(np<1) mel[i3].pos=np; else mel[i3].midi=null; } }
+    return mel.filter(n=>n.midi!=null); }
   function bakeSec(sec){ if(sec.userMel) return; // 사용자 업로드 멜로디는 보존
     const steps=(sec.prog&&sec.prog.steps)||[]; sec.mels=[]; sec.introMel=null; if(!steps.length) return;
     const savedTonic=tonic; tonic=savedTonic+(sec.keyShift||0);
@@ -3766,8 +3779,21 @@
               if(rh.drums && (rh.drums.wood||rh.drums.shaker)){ // 가벼운 타악(우드블록 76·셰이커 82)
                 (rh.drums.wood||[]).forEach(sl=>{ if(brkBar&&sl>=8)return; const tk=T+Math.round((sl/16)*measure); ev.push({tick:tk,on:1,note:76,vel:84}); ev.push({tick:tk+30,on:0,note:76}); });
                 (rh.drums.shaker||[]).forEach(sl=>{ if(brkBar&&sl>=8)return; const tk=T+Math.round((sl/16)*measure); ev.push({tick:tk,on:1,note:82,vel:52}); ev.push({tick:tk+30,on:0,note:82}); });
-              } else
-              [[0,36],[2*q,36],[q,38],[3*q,38],[0,42],[q,42],[2*q,42],[3*q,42]].forEach(p=>{ if(brkBar && p[0]>=2*q) return; ev.push({tick:T+p[0],on:1,note:p[1],vel:Math.max(45,Math.min(116,Math.round(86*inA)))}); ev.push({tick:T+p[0]+30,on:0,note:p[1]}); });
+              } else { const dr=(rh.drums&&(rh.drums.kick||rh.drums.snare||rh.drums.hat||rh.drums.hatOpen))?rh.drums:(DRUMS[gsel]||{});
+                const six=measure/16; const sw=(rh.sw!=null?rh.sw:(SWING[gsel]||0)); const swingG=(sw>0);
+                const stk=(sl)=>{ let tm=sl*six; if(sw>0 && sl%2===1) tm+=sw*0.5*six; return Math.round(tm); }; // 스윙: 홀수 16분 밀기
+                const hasP=(dr.kick&&dr.kick.length)||(dr.snare&&dr.snare.length)||(dr.hat&&dr.hat.length)||(dr.hatOpen&&dr.hatOpen.length);
+                if(hasP){
+                  (dr.kick||[]).forEach(sl=>{ if(brkBar&&sl>=8)return; const tk=T+stk(sl); ev.push({tick:tk,on:1,note:36,vel:Math.max(45,Math.min(122,Math.round((sl%8===0?102:88)*inA)))}); ev.push({tick:tk+30,on:0,note:36}); });
+                  (dr.snare||[]).forEach(sl=>{ if(brkBar&&sl>=8)return; const tk=T+stk(sl); ev.push({tick:tk,on:1,note:38,vel:Math.max(45,Math.min(120,Math.round(98*inA)))}); ev.push({tick:tk+30,on:0,note:38}); });
+                  if(['neosoul','citypop','pop','rock'].indexOf(gsel)>=0 && !brkBar && (sec.stage||3)>=3){ [6,14].forEach(sl=>{ if((dr.snare||[]).indexOf(sl)<0){ const tk=T+stk(sl); ev.push({tick:tk,on:1,note:38,vel:Math.round(38*inA)}); ev.push({tick:tk+20,on:0,note:38}); } }); } // 고스트 스네어(그루브감)
+                  const cym=swingG?51:42; // 스윙 장르=라이드(51), 그 외=클로즈 하이햇(42)
+                  (dr.hat||[]).forEach(sl=>{ if(brkBar&&sl>=8)return; const tk=T+stk(sl); const acc=(sl%4===0); ev.push({tick:tk,on:1,note:cym,vel:Math.max(28,Math.min(98,Math.round((acc?70:48)*inA)))}); ev.push({tick:tk+20,on:0,note:cym}); });
+                  if(swingG && !brkBar){ [4,12].forEach(sl=>{ const tk=T+stk(sl); ev.push({tick:tk,on:1,note:44,vel:Math.round(50*inA)}); ev.push({tick:tk+20,on:0,note:44}); }); } // 하이햇 페달 2·4박(스윙)
+                  (dr.hatOpen||[]).forEach(sl=>{ if(brkBar&&sl>=8)return; const tk=T+stk(sl); ev.push({tick:tk,on:1,note:46,vel:Math.round(66*inA)}); ev.push({tick:tk+Math.round(six*1.6),on:0,note:46}); });
+                } else
+                [[0,36],[2*q,36],[q,38],[3*q,38],[0,42],[q,42],[2*q,42],[3*q,42]].forEach(p=>{ if(brkBar && p[0]>=2*q) return; ev.push({tick:T+p[0],on:1,note:p[1],vel:Math.max(45,Math.min(116,Math.round(86*inA)))}); ev.push({tick:T+p[0]+30,on:0,note:p[1]}); });
+              }
             } else { Md.grid.forEach((v,i)=>{ if(brkBar && i/Ld>=0.5) return; const tk=T+Math.round((i/Ld)*measure), vv=Math.max(45,Math.min(116,Math.round(86*inA)));
               if(v>=3){ ev.push({tick:tk,on:1,note:36,vel:vv}); ev.push({tick:tk+30,on:0,note:36}); }
               else if(v>=2){ ev.push({tick:tk,on:1,note:38,vel:vv}); ev.push({tick:tk+30,on:0,note:38}); }
@@ -3840,7 +3866,7 @@
               const tens=chordTens(st[2]||'maj'); const pick=(tens&&tens[0])||null;
               if(pick!=null){ let t9=c.notes[0]+pick; while(t9>76)t9-=12; while(t9<=voices[0])t9+=12;
                 if(t9<=76 && !voices.some(v=>Math.abs(v-t9)<=1)) voices[voices.length-1]=t9; } }
-            if(phase===2 && !lastBarM && Math.random()<0.5){ // 4-3 계류(절반 확률)
+            if(phase===2 && !lastBarM && Math.random()<0.3){ // 4-3 계류(약화: 30% 확률)
               const four=c.notes[0]+5, third=(c.notes[1]||c.notes[0]+4);
               let fx=four; while(fx<voices[voices.length-1]-6)fx+=12; while(fx>80)fx-=12; const tx=fx-(four-third);
               if(!voices.slice(0,-1).some(v=>Math.abs(v-fx)<=1)){
@@ -3860,9 +3886,14 @@
               const floorE=Math.max(40,Math.min(96,42+stg*9)), peakE=Math.min(120,floorE+24);
               [[0.0,floorE],[0.12,floorE+8],[0.45,peakE],[0.78,floorE+10],[1.0,floorE]].forEach(pv=>ev.push({tick:T+Math.round(measure*pv[0]),cc:11,val:Math.round(pv[1])})); }
           } else if(grp.role==='top'){
-            const top=c.notes[c.notes.length-1], slots=dens==='sparse'?comp.filter(s=>s%8===0):comp;
-            slots.forEach(sl=>{ if(busy&&(sl%4!==0)&&Math.random()<0.2) return; const stk=T+Math.round(sl*measure/16); const vel=Math.round(((sl%8===0)?86:(sl%4===0?74:62))*inA);
-              ev.push({tick:stk,on:1,note:top,vel:Math.max(40,Math.min(116,vel))}); ev.push({tick:stk+Math.round(measure*0.22),on:0,note:top}); });
+            const top=c.notes[c.notes.length-1];
+            if(CINE.has(gsel)){ // 시네마틱: 관은 리듬 컴프 대신 화음톤 롱톤(멜로디와 온셋 충돌 방지 + 오케답게 지속)
+              const dur=lastBarM?measure-6:Math.round(measure*1.02); const vel=Math.max(36,Math.min(96,Math.round((48+(sec.stage||3)*7)*inA)));
+              ev.push({tick:T,on:1,note:top,vel:vel}); ev.push({tick:T+dur,on:0,note:top});
+              [[0.0,44],[0.45,64],[1.0,52]].forEach(pv=>ev.push({tick:T+Math.round(measure*pv[0]),cc:11,val:pv[1]})); // 브레스 스웰
+            } else { const slots=dens==='sparse'?comp.filter(s=>s%8===0):comp;
+              slots.forEach(sl=>{ if(busy&&(sl%4!==0)&&Math.random()<0.2) return; const stk=T+Math.round(sl*measure/16); const vel=Math.round(((sl%8===0)?86:(sl%4===0?74:62))*inA);
+                ev.push({tick:stk,on:1,note:top,vel:Math.max(40,Math.min(116,vel))}); ev.push({tick:stk+Math.round(measure*0.22),on:0,note:top}); }); }
           } else if(grp.role==='bass'){ if(sec.bassOn===false){ /* 이 섹션 베이스 없음 */ } else {
             (rb[si]?rb[si].events:[{slot:0,midi:c.bass}]).forEach(e=>{ const et=T+Math.round(e.slot*measure/16);
               ev.push({tick:et,on:1,note:e.midi,vel:Math.max(45,Math.min(118,Math.round(90*inA)))}); ev.push({tick:et+Math.round(measure*0.42),on:0,note:e.midi}); });
@@ -3877,7 +3908,9 @@
           } }
           else if(grp.role==='pad'){ const sparseA=(LYRIC_G.has(gsel)||pianoNA); const padStage=sparseA?2:3;
             if((sec.stage||3)>=padStage){ // 앰비언트 패드: 근음+5도+옥타브(open 5th)만 — 분위기만(부딪힘 방지)
-            const r0=c.notes[0]; const pn=[...new Set([r0, r0+7, r0+12])].map(m=>Math.min(96,m));
+            const r0=c.notes[0]; const pn=CINE.has(gsel)
+              ? [...new Set([r0-12, r0])].map(m=>Math.max(28,m)) // 시네마틱: 근음+저옥타브만(5도 제거) — 오케 화성층과 반음 충돌 방지
+              : [...new Set([r0, r0+7, r0+12])].map(m=>Math.min(96,m));
             const bridge=(lastBarM && nextSec && sparseA && (sec.keyShift||0)===(nextSec.keyShift||0)); // 이음새 연결(끊김 방지)
             pn.forEach(m=>{ ev.push({tick:T,on:1,note:m,vel:Math.max(24,Math.round(38*inA))}); ev.push({tick:T+measure-10,on:0,note:m}); }); // 나가는 패드는 그대로 끊음(충돌 방지)
             if(bridge){ [[0.0,42],[0.55,72],[1.0,60]].forEach(pv=>ev.push({tick:T+Math.round(measure*pv[0]),cc:11,val:pv[1]})); // 경계로 부풀며 넘어가는 스웰
@@ -3907,8 +3940,8 @@
               const r0=c.notes[0];
               [r0,r0+7].forEach(m=>{ let x=m; while(x>76)x-=12; ev.push({tick:T,on:1,note:x,vel:Math.round(44*inA)}); ev.push({tick:T+measure-10,on:0,note:x}); });
               let sx=r0+5; while(sx>79)sx-=12; let rx=r0+((c.notes[1]||r0+4)-r0); while(rx>79)rx-=12;
-              ev.push({tick:T,on:1,note:sx,vel:Math.round(50*inA)}); ev.push({tick:T+Math.round(measure*0.5)-8,on:0,note:sx});
-              ev.push({tick:T+Math.round(measure*0.5),on:1,note:rx,vel:Math.round(46*inA)}); ev.push({tick:T+measure-10,on:0,note:rx}); }
+              ev.push({tick:T,on:1,note:sx,vel:Math.round(44*inA)}); ev.push({tick:T+Math.round(measure*0.3)-8,on:0,note:sx}); // 계류 약화: 4도를 더 빨리 해결(불협 지속 단축) + 더 여리게
+              ev.push({tick:T+Math.round(measure*0.3),on:1,note:rx,vel:Math.round(48*inA)}); ev.push({tick:T+measure-10,on:0,note:rx}); }
             else { // cineJoy: 경쾌 오프비트(2·4박 리프트)
               const cv=c.notes.slice(0,3).map(m=>{let x=m;while(x>76)x-=12;while(x<52)x+=12;return x;});
               [0.25,0.75].forEach(pp=>{ const st2=T+Math.round(measure*pp); cv.forEach(m=>{ ev.push({tick:st2,on:1,note:m,vel:Math.round(52*inA)}); ev.push({tick:st2+Math.round(measure*0.18),on:0,note:m}); }); });
