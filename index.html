@@ -3369,6 +3369,10 @@
     const sync=(id,v)=>{ const e=$(id); if(e) e.checked=v; };
     sync('counterOn',counterOn); sync('seventhBoost',seventhBoost); sync('harmExtend',harmExtend); sync('pivotOn',pivotOn);
     const ms=$('modSel'); if(ms) ms.value=modChoice;
+    // 추천 조합은 장르 표준 구조로 고정(랜덤 금지) + 장르에 맞는 빌드업 — 구간 마디·구조가 음악적으로 정렬
+    const ss=$('structSel'); if(ss) ss.value='';
+    const bpre=(LYRIC_G.has(key)||pianoNA)?'gentle':(key==='edm'?'edmdrop':(modChoice!=='0'?'modern':'genre'));
+    buildupPreset=bpre; const bs=$('buildupSel'); if(bs) bs.value=bpre;
     if(typeof rollTheme==='function') rollTheme();
     makeSongUnified();
     if($('themeMsg')) $('themeMsg').textContent='📖 '+G[key].name+' · '+(d.name||'조합')+' 적용됨 — 곡 생성 ✓ ▶로 재생';
@@ -3662,6 +3666,9 @@
     const secLabelEn={'인트로':'Intro','벌스':'Verse','프리코러스':'Pre-Chorus','코러스':'Chorus','코러스변주':'Chorus var','간주':'Interlude','브릿지':'Bridge','하이라이트':'Highlight','솔로':'Solo','아웃트로':'Outro'};
     const asc=str=>str.replace(/[^\x00-\x7F]/g,c=>({'♭':'b','♯':'#','–':'-','·':'-'}[c]||'')); // 로직은 메타 텍스트를 Latin-1로 읽어 한글 깨짐 → ASCII로
     let tBytes=[0,0xFF,0x58,0x04,sgN,sgDd,24,8,0].concat(keySigMeta()); // 박자표+조표 (tick 0)
+    { const cn=Array.from(new TextEncoder().encode('Conductor / '+gsel+' FX Guide')); tBytes=tBytes.concat([0,0xFF,0x03]).concat(vlq(cn.length)).concat(cn); // 컨덕터 트랙명
+      const fxTxt='FX ['+gsel+'] '+genreFXAscii().join('  ||  ')+'  ||  ORDER: EQ>Comp>Sat>Reverb/Delay (verb=Aux Send)';
+      const fb=Array.from(new TextEncoder().encode(fxTxt)); tBytes=tBytes.concat([0,0xFF,0x01]).concat(vlq(fb.length)).concat(fb); } // 장르 FX 가이드(텍스트 메타 — 이벤트 리스트에서 열람)
     // 곡 개요 텍스트(FF 01) — tick 0
     const km2=(keyMode==='major'?'Major':(keyMode==='minor'?'minor':'modal'));
     let overview=noteName(tonic)+' '+km2+' / '+Math.round(bpm)+'bpm / '+currentSig+'\n';
@@ -3749,9 +3756,11 @@
           if(grp.role==='counter'){
             if(sec.label!=='인트로' && sec.counterOn!==false){ const cmain=(sec.mels&&sec.mels[r])||genMelody(nsteps,{intensity:sec.intensity,scale:sec.prog.scale}); genCounter(nsteps,cmain).filter(cn=>cn.bar===si).forEach(cn=>{ const mt=T+Math.round(cn.pos*measure), md=Math.max(80,Math.round(cn.dur*TPQ*0.9));
               ev.push({tick:mt,on:1,note:cn.midi,vel:Math.max(44,Math.min(100,Math.round(84*inA)))}); ev.push({tick:mt+md,on:0,note:cn.midi}); }); }
-          } else if(grp.role==='melody'){
+          } else if(grp.role==='melody'){ const melBreath=(melVoiceOf()==='winds'||melVoiceOf()==='strings');
             if(sec.label!=='인트로') ((sec.mels&&sec.mels[r])||mel).filter(mn=>mn.bar===si).forEach(mn=>{ const mt=T+Math.round(mn.pos*measure), md=Math.max(60,Math.round(mn.dur*TPQ));
-              ev.push({tick:mt,on:1,note:mn.midi,vel:Math.max(50,Math.min(124,Math.round(108*inA)))}); ev.push({tick:mt+md,on:0,note:mn.midi}); });
+              ev.push({tick:mt,on:1,note:mn.midi,vel:Math.max(50,Math.min(124,Math.round(108*inA)))}); ev.push({tick:mt+md,on:0,note:mn.midi});
+              if(melBreath && md>=Math.round(TPQ*0.35)){ // 관=브레스·현=활: 지속 멜로디음마다 여림→피크→여림 스웰(악기 고유 익스프레션)
+                ev.push({tick:mt,cc:11,val:72}); ev.push({tick:mt+Math.round(md*0.4),cc:11,val:106}); ev.push({tick:mt+Math.round(md*0.85),cc:11,val:88}); } });
           } else if(grp.role==='drums'){ if(!sec.drums){ /* 이 섹션 드럼 없음(빌드업 단계) */ } else { const Md=meterOf(), Ld=Md.grid.length, simpleD=(currentSig==='4/4'||currentSig==='2/4');
             if(simpleD){ const q=measure/4;
               if(rh.drums && (rh.drums.wood||rh.drums.shaker)){ // 가벼운 타악(우드블록 76·셰이커 82)
@@ -3934,7 +3943,7 @@
             const bn=[c.notes[0],c.notes[2]||c.notes[0]+7].map(m=>{let x=m;while(x>72)x-=12;while(x<52)x+=12;return x;});
             bn.forEach(m=>{ ev.push({tick:T,on:1,note:m,vel:Math.round((56+(stg>=5?14:0))*inA)}); ev.push({tick:T+measure-10,on:0,note:m}); });
             [[0.0,52],[0.4,84],[0.85,58]].forEach(pv=>ev.push({tick:T+Math.round(measure*pv[0]),cc:11,val:pv[1]})); } } // 금관도 스웰
-          else if(grp.role==='harpArp'){ const stg=sec.stage||3; if(stg>=2){ // 하프: 발현 아르페지오 — 흐름·마법
+          else if(grp.role==='harpArp'){ const stg=sec.stage||3; if(stg>=2){ ev.push({tick:T,cc:64,val:127}); ev.push({tick:T+measure-6,cc:64,val:0}); // 하프: 페달로 아르페지오가 울려 퍼지게(발현 특성) + 발현 아르페지오
             const hp=[c.notes[0],c.notes[1]||c.notes[0]+4,c.notes[2]||c.notes[0]+7,c.notes[0]+12];
             const slots=(rh.bpm>=110)?[0,2,4,6,8,10,12,14]:[0,4,8,12];
             slots.forEach((sl,k)=>{ const m=Math.min(96,hp[k%hp.length]+((k>=hp.length)?12:0)); const st2=T+Math.round(sl*measure/16);
@@ -3948,7 +3957,7 @@
           else if(grp.role==='lowbrass'){ const stg=sec.stage||3; if(stg>=5){ // 저금관: 절정 무게 — 근음·5도 롱톤
             const lb=[Math.max(36,c.bass-12),Math.max(43,c.bass-5)];
             lb.forEach(m=>{ ev.push({tick:T,on:1,note:m,vel:Math.round(92*inA)}); ev.push({tick:T+measure-10,on:0,note:m}); }); } }
-          else if(grp.role==='harp'){ const stg=sec.stage||3; // 하프: 아르페지오(슬픔·행복 2단계+), 벅차오름은 섹션 전환 상승 런
+          else if(grp.role==='harp'){ const stg=sec.stage||3; ev.push({tick:T,cc:64,val:127}); ev.push({tick:T+measure-6,cc:64,val:0}); // 하프: 페달로 울림(발현 특성). 아르페지오(슬픔·행복 2단계+), 벅차오름은 섹션 전환 상승 런
             if((gsel==='cineSorrow'||gsel==='cineJoy') && stg>=2){ const hp=[c.notes[0],c.notes[1]||c.notes[0]+4,c.notes[2]||c.notes[0]+7,(c.notes[0]+12)];
               const slots=(gsel==='cineJoy')?[0,2,4,6,8,10,12,14]:[0,4,8,12];
               slots.forEach((sl,k)=>{ const m=hp[k%hp.length]+((k>=hp.length)?12:0); const st2=T+Math.round(sl*measure/16);
@@ -4008,7 +4017,7 @@
           const bars=(sec.prog&&sec.prog.steps?sec.prog.steps.length:0)*(sec.reps||1), rampTk=Math.round(measureTick*0.75), steps=5;
           for(let k=0;k<=steps;k++) ev.push({tick:ctk+Math.round(rampTk*k/steps), cc:1, val:Math.round(prevV+(target-prevV)*k/steps)});
           prevV=target; ctk+=bars*measureTick; }); }
-      if((exprCC||CINE.has(gsel)) && ['pad','winds','counter','horns','choir'].indexOf(grp.key)>=0){ // 스테이지 스웰(패드·관·오케). 현은 마디 활 스웰로 자체 처리
+      if((['winds','counter'].indexOf(grp.key)>=0) || ((exprCC||CINE.has(gsel)) && ['pad','horns','choir'].indexOf(grp.key)>=0)){ // 관=브레스·대선율=활은 기본 CC11(악기 고유), 패드·오케는 시네/토글 시
         ev.push({tick:0,cc:11,val:64}); let ctk=PAD, prevV=64;
         currentSong.forEach(sec=>{ const stg=sec.stage||3, target=Math.max(50,Math.min(120,44+stg*13));
           const bars=(sec.prog&&sec.prog.steps?sec.prog.steps.length:0)*(sec.reps||1), rampTk=Math.round(measureTick*0.5), steps=4;
@@ -4081,72 +4090,303 @@
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1200);
     setTimeout(()=>{ downloadSetupSheet(); },350); // 레시피 TXT 동시 제공(브라우저 연속 다운로드)
   }
-  function buildSetupSheet(){ // 곡별 로직 셋업 시트(뼈대 → 기초작업 체크리스트)
+  function genreFXLines(){ // 장르별 FX 가이드(무엇을·어느 트랙에) — TXT/MIDI 공용
+    const G_FX={
+      lyric:['Piano(ch0) -> Ch EQ(HPF 40Hz·3kHz +1) > 컴프 1.5:1(GR 1~2) > Plate/Hall 리버브 3s mix 30% > 1/4 딜레이 fb 12%','Pad(ch4) -> ChromaVerb Large Hall 5s+ > 로우패스 오토메이션(구간마다 열기)','Strings(ch1) -> 롱 홀 리버브 + CC11로 다이내믹','master -> 글루 컴프 1.5:1 GR 1~2 > -16~-18 LUFS','스로우: 프레이즈 끝 리버브 send 순간 상승'],
+      newage:['Piano(ch0) -> 소프트 EQ > Hall 3~4s mix 35% > 롱 딜레이','Pad -> 셔머 리버브(Valhalla Supermassive) > 로우패스','master -> -18 LUFS · 넓은 다이내믹(리미터 최소)'],
+      lyricMid:['Melody/Piano -> 짧은 룸 0.8s + 살짝 테이프 새추레이션 · 이국 색은 드라이 유지','master -> -16 LUFS'],
+      pop:['Lead/Vocal(ch5) -> 컴프 3:1 > EQ 프레즌스 3~5kHz > Plate 1.2s > 1/8 딜레이 스로우','Drums(ch9) -> 병렬 컴프 8:1 GR 10~15dB > 버스 EQ','Bass(ch3) -> 컴프 4:1 > 킥 사이드체인','master -> 글루 컴프 > 리미터 -14 LUFS'],
+      ballad:['Lead(ch5) -> 컴프 2.5:1 > Plate 1.8s','Strings/Pad -> 롱 홀','Piano -> 소프트 EQ + 룸','master -> -14 LUFS(다이내믹 여유)'],
+      citypop:['Keys/Guitar -> 코러스 > 브라이트 EQ(하이셸프 8kHz +2) > 게이트 리버브(스네어)','Bass -> 컴프 + 살짝 드라이브','master -> 아날로그 새추레이션 > -12~-14 LUFS'],
+      jazz:['전체 -> 최소 처리 · 룸 리버브 0.8~1.2s · 라이트 컴프 2:1 · 따뜻한 EQ','근접·드라이 밸런스 유지 · master -16 LUFS'],
+      neosoul:['Keys -> 테이프 새추레이션 > 빈티지 EQ > 룸','Drums -> 로우패스 살짝(빈티지) + 병렬 컴프','master -> -14 LUFS'],
+      bossa:['Guitar(나일론) -> 브라이트 EQ + 룸 0.9s','전체 라이트 컴프 · 근접감 · master -15 LUFS'],
+      blues:['Guitar -> 오버드라이브 > 앰프심 > 스프링 리버브','Drums -> 병렬 컴프 + 게이트 · master 새추레이션 -12 LUFS'],
+      rock:['Guitar -> 디스토션 > 앰프심 > 스프링 리버브','Drums -> 병렬 컴프 8:1 GR 12 + 게이트','Bass -> 드라이브 + 킥 사이드체인','master -> 새추레이션 > -11 LUFS'],
+      edm:['Pad/Bass(ch4/3) -> 킥 사이드체인 컴프(4/4 펌핑)','Lead(ch5) -> 슈퍼소 > 리버브 스로우 + 1/4 핑퐁 딜레이','Sub(ch8) -> 모노 · 로우패스','Riser(ch7) -> 하이패스 오토메이션 + 리버브 스웰','master -> 멀티밴드 > 리미터 -9~-7 LUFS'],
+      lofi:['전체 버스 -> 비닐/크런치 > 와우플러터(테이프) > 로우패스(빈티지) > 비트크러시 살짝','Drums -> 사이드체인 살짝 · master -12~-14 LUFS'],
+      classic:['전체 -> 콘서트홀 리버브 2~3s(프리딜레이 20ms) · 컴프 최소 · 자연 다이내믹','master -> -18 LUFS(넓은 다이내믹)'],
+      folk:['Acoustic -> 룸 0.9s + 브라이트 EQ · 라이트 컴프 · master -15 LUFS'],
+      celtic:['Whistle/Harp -> 홀 리버브 + 딜레이 · 라이트 컴프 · master -15 LUFS'],
+      gugak:['전체 -> 투명한 룸 · 리버브 최소 · 드라이 근접 · master -16 LUFS'],
+      quartal:['Pad/Piano -> 넓은 홀 · 로우패스 · master -18 LUFS'],
+      tango:['Violin/Bandoneon -> 룸 + 프레즌스 EQ · 드라이 근접 · master -15 LUFS'],
+      gypsy:['Guitar/Violin -> 룸 0.9s + 브라이트 · 라이트 컴프 · master -15 LUFS'],
+      cine:['Strings/Horns -> 홀 리버브 2.5~3.5s(프리딜레이 20~30ms) > 서브 강화','저금관(ch11) -> 절정만 · 와이드 스테레오','Harp(ch12) -> 홀 + CC64 울림','master -> 라이트 글루 · -16 LUFS · 넓은 다이내믹','CC1(pp~ff)·CC11 라이브러리 매핑 확인 · 금관 트랙딜레이 -30~-60ms']
+    };
+    if(CINE.has(gsel)) return G_FX.cine;
+    if(G_FX[gsel]) return G_FX[gsel];
+    if(LYRIC_G.has(gsel)) return G_FX.lyric;
+    return G_FX.pop; // 폴백
+  }
+  function genreFXAscii(){ // MIDI 메타용 영문 FX(로직 Latin-1)
+    const A={
+      lyric:['Piano(ch0): EQ(HPF40,3k+1) > Comp 1.5:1 > Plate/Hall 3s 30% > 1/4 delay fb12%','Pad(ch4): ChromaVerb Hall 5s+ > LPF automation','master: glue 1.5:1 > -16~-18 LUFS','Throw: reverb send bump at phrase ends'],
+      newage:['Piano: soft EQ > Hall 3~4s 35% > long delay','Pad: shimmer verb > LPF','master: -18 LUFS wide dynamics'],
+      pop:['Lead(ch5): Comp 3:1 > EQ presence 3-5k > Plate 1.2s > 1/8 delay throw','Drums(ch9): parallel comp 8:1 GR10-15 > bus EQ','Bass(ch3): Comp 4:1 > kick sidechain','master: glue > limiter -14 LUFS'],
+      ballad:['Lead(ch5): Comp 2.5:1 > Plate 1.8s','Strings/Pad: long Hall','master: -14 LUFS'],
+      citypop:['Keys/Gtr: Chorus > bright EQ(8k+2) > gated verb(snare)','Bass: Comp + light drive','master: analog sat > -12~-14 LUFS'],
+      jazz:['all: minimal - Room 0.8-1.2s, light Comp 2:1, warm EQ','close/dry balance, master -16 LUFS'],
+      neosoul:['Keys: tape sat > vintage EQ > Room','Drums: light LPF + parallel comp','master -14 LUFS'],
+      bossa:['Nylon Gtr: bright EQ + Room 0.9s','light comp, close, master -15 LUFS'],
+      blues:['Gtr: Overdrive > Amp > Spring verb','Drums: parallel comp + gate, master sat -12 LUFS'],
+      rock:['Gtr: Distortion > Amp > Spring','Drums: parallel comp 8:1 GR12 + gate','Bass: drive + kick sidechain','master: sat > -11 LUFS'],
+      edm:['Pad/Bass(ch4/3): kick sidechain (4/4 pump)','Lead(ch5): supersaw > verb throw + 1/4 pingpong','Sub(ch8): mono LPF','Riser(ch7): HPF automation + verb swell','master: multiband > limiter -9~-7 LUFS'],
+      lofi:['bus: vinyl/crackle > wowflutter > LPF vintage > bitcrush light','Drums: light sidechain, master -12~-14 LUFS'],
+      classic:['all: concert hall 2-3s(predelay20) - minimal comp, natural dynamics','master -18 LUFS'],
+      folk:['Acoustic: Room 0.9s + bright EQ, light comp, master -15'],
+      celtic:['Whistle/Harp: Hall + delay, light comp, master -15'],
+      gugak:['all: transparent Room, minimal verb, dry, master -16'],
+      quartal:['Pad/Piano: wide Hall + LPF, master -18'],
+      tango:['Violin/Bandoneon: Room + presence EQ, dry close, master -15'],
+      gypsy:['Gtr/Violin: Room 0.9s bright, light comp, master -15'],
+      cine:['Strings/Horns: Hall 2.5-3.5s(predelay20-30) > sub reinforce','LowBrass(ch11): climax only, wide stereo','Harp(ch12): Hall + CC64 ring','master: light glue, -16 LUFS wide dynamics','map CC1(pp-ff)/CC11; brass track-delay -30~-60ms']
+    };
+    if(CINE.has(gsel)) return A.cine;
+    if(A[gsel]) return A[gsel];
+    if(LYRIC_G.has(gsel)) return A.lyric;
+    return A.pop;
+  }
+  function trendNote(){ const T={
+    lyric:'네오클래시컬/앰비언트 — 여백·롱 리버브·소프트 다이내믹, 로파이 질감 살짝',
+    lyricPenta:'미니멀 5음계 — 담백·투명, 처리 최소',
+    lyricMid:'시네마틱 월드 — 이국 색 드라이 유지 + 짧은 룸',
+    newage:'힐링/명상 — 넓은 홀·셔머, 낮은 라우드니스(-18)',
+    pop:'모던 팝 — 타이트하고 크게, 보컬 프레즌스·병렬 드럼·-14 LUFS',
+    ballad:'감성 발라드 — 넓은 다이내믹, 플레이트 리드, 후반 전조 고조',
+    citypop:'시티팝 리바이벌 — 코러스·게이트 스네어·아날로그 새추, 브라이트',
+    kids:'동요 — 밝고 단순, 좁은 음역, 명료',
+    jazz:'모던/네오 재즈 — 드라이 근접, 최소 처리, 따뜻함',
+    neosoul:'네오소울 — 테이프 새추·빈티지 EQ·느슨한 그루브',
+    bossa:'보사노바 — 나일론 브라이트·룸·라이트 컴프',
+    blues:'모던 블루스 — 앰프심·스프링·병렬 드럼',
+    rock:'모던 록 — 병렬 드럼·앰프심·새추 강조, -11 LUFS',
+    edm:'페스티벌/멜로딕 — 강한 사이드체인 펌핑·슈퍼소·-8 LUFS 라우드',
+    lofi:'로파이 힙합 — 테이프 와우·비닐·먼지, 다운템포·낮은 라우드니스',
+    classic:'클래시컬 — 콘서트홀·자연 다이내믹·처리 최소(-18)',
+    folk:'포크 — 어쿠스틱 근접·룸·라이트 컴프',
+    celtic:'켈틱 — 홀·딜레이·휘슬 프레즌스',
+    gugak:'투명 앰비언트 — 드라이·룸 최소',
+    quartal:'모던 앰비언트 — 넓은 홀·로우패스',
+    tango:'탱고 — 반도네온/바이올린 프레즌스·드라이 근접',
+    gypsy:'집시 스윙 — 브라이트 기타·룸·라이트 컴프',
+    cine:'트레일러/시네마틱 — 하이브리드 오케·넓은 다이내믹·서브 강화'
+  }; if(CINE.has(gsel))return T.cine; if(T[gsel])return T[gsel]; if(LYRIC_G.has(gsel))return T.lyric; return T.pop; }
+  function masterLUFS(){ if(gsel==='edm')return '-8'; if(['citypop','rock','blues','neosoul'].indexOf(gsel)>=0)return '-11~-12';
+    if(LYRIC_G.has(gsel)||['classic','quartal','gugak'].indexOf(gsel)>=0||CINE.has(gsel))return '-16~-18'; return '-14'; }
+  const GENRE_MIX={
+    // 서정/앰비언트 (에이올리안·펜타·뉴에이지)
+    lyric:   {rev:'Hall (ChromaVerb) 3.0s · mix 30% · predelay 20ms', dly:'1/4 · fb 12% · mix 15%', eq:'HPF 40Hz · 250Hz -1.5dB · 고역 -1dB(어두운 틸트)', comp:'1.5:1 · A20 R150 · GR 1~2dB', sat:'테이프 아주 살짝(2~4%)', width:'중간~넓게 · 리버브 와이드'},
+    lyricPenta:{rev:'Hall 2.6s · 26% · predelay 18ms', dly:'1/4 · fb 10% · 12%', eq:'투명 · HPF 50Hz · 10kHz +0.5dB', comp:'1.3:1 최소 · GR 1dB', sat:'없음', width:'중간'},
+    lyricMid:{rev:'Room 0.8s 18% + 짧은 Hall 2.0s 12%', dly:'짧게 1/8 · fb 8%', eq:'HPF 60Hz · 1.5kHz +1dB(이국 중역) · 6kHz +1dB', comp:'1.5:1 · GR 1~2dB', sat:'테이프 살짝', width:'중간 · 이국 색은 드라이'},
+    lyricMinyo:{rev:'Room 1.0s 20% · predelay 12ms', dly:'없음', eq:'HPF 70Hz · 3kHz +1.5dB(밝게)', comp:'1.5:1 · GR 1~2dB', sat:'없음', width:'중간'},
+    newage:  {rev:'Shimmer (Valhalla Supermassive) 5.0s+ · 40% · predelay 30ms', dly:'1/2 · fb 20% · 15%', eq:'HPF 40Hz · 부드러운 고역(에어 12kHz +1)', comp:'최소 1.3:1 · GR 1dB', sat:'없음', width:'매우 넓게 · 스테레오 확장'},
+    // 팝 계열
+    pop:     {rev:'리드 Plate 1.2s 18% · 드럼 Room 0.6s 10%', dly:'1/8 스로우 · fb 15% · 12%', eq:'프레즌스 3~5kHz +2dB · 브라이트', comp:'리드 3:1 A5 R80 · 드럼 병렬 8:1 GR12', sat:'마스터 새추 살짝', width:'넓게(코러스 와이드)'},
+    ballad:  {rev:'리드 Plate 1.8s 22% · 현 Hall 2.8s 30%', dly:'1/8 · fb 15% · 12%', eq:'250Hz -2dB(따뜻) · 5kHz +1.5dB', comp:'2.5:1 A10 R120 젠틀 · GR 3~4dB', sat:'없음~살짝', width:'넓게 · 다이내믹 여유'},
+    citypop: {rev:'게이트 리버브 0.3s(스네어) + Room 1.0s 18%', dly:'1/8 dotted · fb 20% · 18%', eq:'하이셸프 8kHz +2dB · 200Hz -1dB · 브라이트', comp:'2:1 + 아날로그 컴프', sat:'아날로그 테이프 새추(6~10%)', width:'와이드 · 코러스(키/기타)'},
+    kids:    {rev:'Room 0.8s 16% · predelay 10ms', dly:'없음', eq:'HPF 90Hz · 4kHz +2dB(또렷) · 좁은 음역', comp:'2:1 · GR 2dB', sat:'없음', width:'중간 · 중앙 집중'},
+    // 재즈/소울/라틴
+    jazz:    {rev:'Room 0.8~1.2s · 15% · predelay 15ms', dly:'없음', eq:'따뜻/중립 · 최소 · 200Hz 살짝', comp:'라이트 2:1 A15 R150 · GR 2dB', sat:'튜브 살짝', width:'근접 · 좁게(트리오)'},
+    neosoul: {rev:'Room 1.0s 18% + Plate 1.4s 12%', dly:'1/8 · fb 18%', eq:'250Hz -1dB · 3kHz +1dB · 로우패스 살짝', comp:'느슨 2:1 · GR 3dB · 그루브', sat:'테이프 새추(8~12%) · 빈티지 EQ', width:'중간~넓게'},
+    bossa:   {rev:'Room 0.9s 16% · predelay 12ms', dly:'없음', eq:'나일론 브라이트 6kHz +1.5dB · HPF 80Hz', comp:'라이트 2:1 · GR 2dB', sat:'없음~살짝', width:'근접 · 중간'},
+    // 록/블루스
+    blues:   {rev:'Spring 1.2s 18% + Room 0.8s', dly:'1/8 slap · fb 12%', eq:'미드 프레즌스 2~4kHz · HPF 60Hz', comp:'기타 앰프심 · 드럼 병렬 8:1', sat:'오버드라이브/앰프심', width:'넓게'},
+    rock:    {rev:'Spring/Plate 1.4s 18%', dly:'1/8 slap · fb 15%', eq:'미드 스쿱 500Hz -2dB · 4kHz +2dB(프레즌스)', comp:'병렬 드럼 8:1 GR12 · 기타 앰프', sat:'디스토션/앰프심', width:'넓게 · 기타 좌우'},
+    // 일렉트로닉
+    edm:     {rev:'리드 Hall 2.0s throw · send 25% · predelay 10ms', dly:'1/4 핑퐁 · fb 30% · 20%', eq:'브라이트 · 사이드체인 EQ · Sub 모노', comp:'킥 사이드체인 펌핑(4/4) · 리드 3:1', sat:'멀티밴드 새추 · 리미터 강하게', width:'초광각(리드/패드) · Sub 모노'},
+    lofi:    {rev:'Spring/Room 1.0s 20% · 더티', dly:'1/8 테이프 · fb 25% · 20%', eq:'LPF 8~10kHz(어둡게) · HPF 60Hz · 중역 부스트', comp:'글루 2:1 + 와우플러터', sat:'테이프/비닐/비트크러시(살짝)', width:'모노~좁게(빈티지)'},
+    // 클래식/포크/월드
+    classic: {rev:'콘서트홀 2.5~3.0s · 28% · predelay 25ms', dly:'없음', eq:'자연 · 최소 · HPF 40Hz', comp:'최소 1.3:1 · GR 1dB(자연 다이내믹)', sat:'없음', width:'넓게 · 오케 배치(팬)'},
+    folk:    {rev:'Room 0.9s 18% · predelay 12ms', dly:'없음', eq:'어쿠스틱 브라이트 5kHz +1.5dB · HPF 70Hz', comp:'라이트 2:1 · GR 2dB', sat:'없음~살짝', width:'중간 · 근접'},
+    celtic:  {rev:'Hall 2.5s 28% + 딜레이', dly:'1/4 dotted · fb 18% · 15%', eq:'휘슬 프레즌스 4kHz +2dB · HPF 80Hz', comp:'라이트 2:1', sat:'없음', width:'넓게'},
+    shanty:  {rev:'Room 1.0s 20%', dly:'없음', eq:'중역 따뜻 · HPF 70Hz · 3kHz +1dB', comp:'2:1 · GR 2dB', sat:'없음', width:'중간 · 합창 와이드'},
+    gugak:   {rev:'투명 Room 0.8s 14% · predelay 10ms', dly:'없음', eq:'드라이 · HPF 50Hz · 자연', comp:'최소 · GR 1dB', sat:'없음', width:'중간 · 근접'},
+    quartal: {rev:'넓은 Hall 4.0s 34% · predelay 25ms', dly:'1/2 · fb 15%', eq:'로우패스 살짝 · HPF 40Hz', comp:'최소 · GR 1dB', sat:'없음', width:'매우 넓게'},
+    tango:   {rev:'Room 1.0s 18% · predelay 12ms', dly:'없음', eq:'반도네온/바이올린 프레즌스 3kHz +2dB · HPF 70Hz', comp:'2:1 · GR 2~3dB(드라마)', sat:'없음', width:'근접 · 중간'},
+    gypsy:   {rev:'Room 0.9s 16%', dly:'1/8 · fb 10%', eq:'기타 브라이트 6kHz +1.5dB · HPF 80Hz', comp:'라이트 2:1', sat:'없음~살짝', width:'중간 · 근접'},
+    // 모달 (도리안·프리지안·리디안·믹솔·이국)
+    dorian:  {rev:'Hall 2.4s 26%', dly:'1/4 · fb 12%', eq:'중역 따뜻 · HPF 50Hz · 6도 색', comp:'1.5:1 · GR 2dB', sat:'살짝', width:'넓게'},
+    phrygian:{rev:'Room 1.0s 18% + Hall 2.0s 14%', dly:'짧게', eq:'♭2 긴장 · 중역 · HPF 60Hz', comp:'1.5:1', sat:'테이프 살짝', width:'중간'},
+    lydian:  {rev:'Hall 3.0s 30% · shimmer 살짝', dly:'1/4 · fb 15%', eq:'#4 밝음 · 고역 +1dB · HPF 40Hz', comp:'최소 1.3:1', sat:'없음', width:'넓게'},
+    mixolydian:{rev:'Room 1.2s 20% + Plate 1.4s', dly:'1/8 · fb 15%', eq:'♭7 · 프레즌스 3kHz · HPF 60Hz', comp:'2:1 · GR 2dB', sat:'살짝', width:'넓게'},
+    doubleharm:{rev:'Hall 2.6s 28% · predelay 20ms', dly:'없음', eq:'이국 · 증2도 색 · 중역 6kHz +1dB', comp:'1.5:1', sat:'없음', width:'넓게 · 드라마틱'},
+    hungarian:{rev:'Hall 2.6s 28%', dly:'없음', eq:'집시 미노어 · 4kHz +1.5dB · HPF 60Hz', comp:'2:1 · GR 2dB', sat:'없음', width:'넓게'},
+    phrygdom:{rev:'Room 1.0s 18% + Hall 2.2s', dly:'짧게', eq:'프리지안 도미넌트 ♭II · 중역 긴장', comp:'1.5:1', sat:'테이프 살짝', width:'중간~넓게'},
+    // 시네마틱(무드) — 오케
+    cine:    {rev:'스코어링 Hall 2.8~3.5s · 32% · predelay 25~30ms', dly:'없음(현 스웰)', eq:'저역 서브 강화 · 현 8kHz +1dB · 금관 6kHz +1dB', comp:'라이트 글루 1.5:1 · 다이내믹 유지', sat:'없음(자연)', width:'매우 넓게 · 오케 팬 배치'}
+  };
+  function genreMix(){ if(CINE.has(gsel))return GENRE_MIX.cine; if(GENRE_MIX[gsel])return GENRE_MIX[gsel]; if(LYRIC_G.has(gsel))return GENRE_MIX.lyric; return GENRE_MIX.pop; }
+  function genreRevType(){ const r=genreMix().rev; const m=r.match(/^([^0-9(]*)/); return (m?m[1]:'Hall').trim().replace(/·$/,'').trim()||'Hall'; }
+  function trackSetupBlocks(){ // 트랙별 [음원 · EQ · 컴프 · 센드] 수치. 활성 트랙만.
+    const spaceMul=(LYRIC_G.has(gsel)||CINE.has(gsel)||['classic','quartal','newage'].indexOf(gsel)>=0)?1.3:1; // 앰비언트/오케=공간 넓게
+    const rv=(base)=>Math.round(base*spaceMul*10)/10;
+    const L=[]; const blk=(head,lines)=>{ L.push('  ['+head+']'); lines.forEach(x=>L.push('     '+x)); };
+    if(INST.melody.on){ const wind=(melVoiceOf&&melVoiceOf()==='winds'), bow=(melVoiceOf&&melVoiceOf()==='strings');
+      blk('Melody ch5  (가이드 — 내 멜로디로 교체/뮤트)', [
+        '음원(Instrument 슬롯): '+(wind?'Flute/Oboe (Studio Horns·LABS)':(bow?'Solo Strings (BBC SO Discover)':'Felt Piano (LABS Soft Piano)')),
+        'EQ(Channel EQ): HPF 80Hz · 250Hz -1.5dB · 3~5kHz +2dB(존재감) · 12kHz +1dB(공기)',
+        '컴프(Comp): 2.5:1 · Attack 5ms · Release 80ms · GR 3~4dB',
+        '센드(Sends→Bus): Plate '+rv(1.2)+'s, 18% (predelay 15ms)'+((wind||bow)?' · CC11 브레스/활 스웰 구워짐':' · 벨로시티 다이내믹')]); }
+    if(INST.piano.on) blk('Piano ch0', [
+      '음원(Instrument 슬롯): Spitfire LABS Soft Piano / Studio Piano(Felt, 클로즈 마이크)',
+      'EQ(Channel EQ): HPF 40Hz · 250Hz -2dB(머드) · 5kHz +1.5dB(어택)',
+      '컴프(Comp): 2:1 · Attack 15ms · Release 120ms · GR 2~3dB',
+      '센드(Sends→Bus): Hall '+rv(2.5)+'s, 25% (predelay 20ms) · CC64 서스테인 구워짐']);
+    if(INST.strings.on) blk('Strings ch1', [
+      '음원(Instrument 슬롯): BBC SO Discover Strings (Legato) / Studio Strings',
+      'EQ(Channel EQ): HPF 60Hz · 300Hz -2dB · 8kHz +1dB(윤기)',
+      '컴프(Comp): 1.5:1 · Attack 20ms · Release 150ms · GR 1~2dB',
+      '센드(Sends→Bus): Hall '+rv(2.8)+'s, 30% · CC11 활 스웰 구워짐(마디마다)']);
+    if(INST.winds.on) blk('Winds ch2', [
+      '음원(Instrument 슬롯): 플루트/오보에 (Studio Horns·LABS)',
+      'EQ(Channel EQ): HPF 120Hz · 2kHz +1.5dB · 10kHz +2dB(에어)',
+      '컴프(Comp): 2:1 · Attack 10ms · Release 100ms · GR 2dB',
+      '센드(Sends→Bus): Hall '+rv(2.5)+'s, 25% · CC11 브레스 구워짐']);
+    if(counterOn) blk('Counter ch6  (대선율)', [
+      '음원(Instrument 슬롯): Solo Cello / Solo Strings (레가토)',
+      'EQ(Channel EQ): HPF 90Hz · 400Hz -1dB',
+      '컴프(Comp): 1.5:1 · Attack 20ms · Release 140ms · GR 1~2dB',
+      '센드(Sends→Bus): Hall '+rv(2.6)+'s, 22% · CC11 활 스웰 구워짐']);
+    if(INST.bass.on) blk('Bass ch3', [
+      '음원(Instrument 슬롯): '+(gsel==='edm'?'ES2/Sub Bass 신스':'Bass 패치(Sampler)/어쿠스틱'),
+      'EQ(Channel EQ): HPF 30Hz · 80Hz +1.5dB(무게) · 700Hz +1dB(정의) · 2.5kHz +1dB(핑거 노이즈)',
+      '컴프(Comp): 4:1 · Attack 20ms · Release 100ms · GR 4~6dB',
+      '사이드체인(Comp 우측상단 Side Chain): 킥에 2~3dB 덕킹 · 리버브 없음(드라이)']);
+    if(INST.drums.on) blk('Drums ch9', [
+      '음원(Instrument 슬롯): '+(LYRIC_G.has(gsel)?'브러시/소프트 퍼크':'Drum Kit / 어쿠스틱'),
+      '버스 EQ(Ch EQ): HPF 30Hz · 400Hz -1dB · 5kHz +2dB(어택) · 10kHz +1dB',
+      '병렬 컴프(Comp, 병렬): 8:1 · Attack 5ms · Release 80ms · GR 10~15dB · 블렌드 30~40%',
+      '센드(Sends→Bus): Room 0.6s, 10%'+(gsel==='citypop'?' · 스네어 게이트 리버브 0.3s':'')]);
+    if(prodTracks){
+      blk('Pad ch4', [
+        '음원(Instrument 슬롯): Alchemy Warm Pad / Analog 3-레이어',
+        'EQ(Channel EQ): HPF 100Hz · LPF 8kHz(구간마다 열기 오토메이션)',
+        '컴프(Comp): 2:1 · GR 1~2dB',
+        '센드(Sends→Bus): '+(gsel==='edm'?'Hall':'Shimmer/ChromaVerb Large')+' '+rv(4.5)+'s, 40%']);
+      blk('Sub ch8  (L4+)', [
+        '음원(Instrument 슬롯): ES2 사인 서브',
+        'EQ(Channel EQ): LPF 120Hz · 모노(Below 120Hz)',
+        '컴프(Comp): 2:1 · GR 2dB · 킥 사이드체인 · 리버브 없음']);
+      blk('Riser ch7  (드롭 직전)', [
+        '음원(Instrument 슬롯): 리버스 스웰/노이즈',
+        'FX: HPF 오토메이션 상승 · Valhalla Supermassive 60% 스웰']);
+    }
+    if(CINE.has(gsel)){
+      blk('Horns ch10', ['음원(Instrument 슬롯): Studio Horns(호른 섹션)','EQ(Channel EQ): HPF 70Hz · 500Hz -1dB · 6kHz +1dB','컴프(Comp): 2:1 A20 R150 GR2','센드(Sends→Bus): Hall '+rv(3.0)+'s, 30% · 트랙딜레이 -40ms · CC1/CC11']);
+      if(gsel==='cineTension'||gsel==='cineSoar') blk('LowBrass ch11', ['음원(Instrument 슬롯): 트롬본·튜바','EQ(Channel EQ): HPF 40Hz · 200Hz +1dB','컴프(Comp): 2.5:1 GR3','절정만 · 와이드 · 트랙딜레이 -50ms']);
+      if(gsel!=='cineTension') blk('Harp ch12', ['음원(Instrument 슬롯): Concert Harp','EQ(Channel EQ): HPF 90Hz · 6kHz +1.5dB','센드(Sends→Bus): Hall '+rv(3.0)+'s, 32% · CC64 울림 구워짐']);
+      if(gsel==='cineTension'||gsel==='cineSoar') blk('Choir ch13', ['음원(Instrument 슬롯): 합창 Aahs','EQ(Channel EQ): HPF 120Hz · 3kHz +1dB','센드(Sends→Bus): Hall '+rv(3.5)+'s, 38% · CC11']);
+      if(gsel!=='cineSorrow') blk('Timpani ch14', ['음원(Instrument 슬롯): 팀파니','EQ(Channel EQ): HPF 50Hz · 3kHz +1dB(막대 어택)','센드(Sends→Bus): Hall '+rv(2.8)+'s, 25%']);
+      blk('Contrabass ch15', ['음원(Instrument 슬롯): 저현(콘트라베이스)','EQ(Channel EQ): HPF 30Hz · 120Hz +1dB','컴프(Comp): 2:1 GR2 · 트랙딜레이 -40ms · CC1']);
+    }
+    return L;
+  }
+  function buildSetupSheet(){ // 곡별 로직 셋업 시트 — 논리 순서: 정보→배치→트랙셋업→FX→마스터→포인트→프렙
     if(!currentSong||!currentSong.length) return '';
     const bpm=+($('userBpmNum')&&$('userBpmNum').value)||((GROOVE[gsel]&&GROOVE[gsel].bpm)||90);
     const km=(keyMode==='major'?'장조':(keyMode==='minor'?'단조':'모달'));
-    const stgN={1:'씨앗',2:'바탕',3:'전개',4:'고양',5:'심화',6:'절정'};
     const len=(typeof songLenSec==='function')?songLenSec(currentSong):0;
     const fmt=s=>Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0');
     const L=[];
-    L.push('=== 로직 셋업 시트 · '+G[gsel].name+' ===');
-    L.push('(Play Composer -> Logic Pro / 뼈대 모드 — 멜로디는 가이드)');
+    L.push('==================================================');
+    L.push('  로직 셋업 시트 · '+G[gsel].name);
+    L.push('  (Play Composer -> Logic Pro 11)');
+    L.push('==================================================');
     L.push('');
     L.push('■ 곡 정보');
-    L.push('- 장르 '+G[gsel].name+'  |  조성 '+noteName(tonic)+' '+km+'  |  템포 '+Math.round(bpm)+' BPM  |  박자 '+currentSig);
-    L.push('- 구조 '+currentSong.map(s=>s.label).join(' → ')+(len?('   |   길이 ≈ '+fmt(len)):''));
+    L.push('   장르 '+G[gsel].name+'  |  조성 '+noteName(tonic)+' '+km+'  |  템포 '+Math.round(bpm)+' BPM  |  박자 '+currentSig+(len?('  |  길이 ≈ '+fmt(len)):''));
+    L.push('   구조  '+currentSong.map(s=>s.label).join(' → '));
+    L.push('   트렌드: '+trendNote());
     L.push('');
-    L.push('■ 트랙 -> 음원 교체 (GM은 임시 톤, 실제 음원으로 교체)');
-    if(INST.melody.on) L.push('  · Melody (ch5) [가이드 — 내 멜로디로 교체 또는 뮤트] -> 펠트 Studio Piano / (서정)Flute·대금');
-    if(INST.piano.on)  L.push('  · Piano (ch0)  -> Studio Piano (소프트/클로즈)');
-    if(prodTracks){
-      L.push('  · Pad (ch4)    -> 3-레이어: (1)Alchemy Warm (2)Alchemy 그래뉼러[피아노 바운스] (3)Pitch+12->ChromaVerb');
-      L.push('  · Sub (ch8)    -> ES2 사인 서브 (모노, L4+)');
-      L.push('  · Riser (ch7)  -> 리버스 스웰 / Valhalla Supermassive');
-    }
-    if(counterOn)       L.push('  · Counter (ch6) -> Studio Strings (레가토)');
-    if(INST.strings.on) L.push('  · Strings (ch1) -> Studio Strings');
-    if(INST.winds.on)   L.push('  · Winds (ch2)   -> Studio Horns / 플루트 패치');
-    if(INST.bass.on)    L.push('  · Bass (ch3)    -> Bass 패치 (Sampler) / 어쿠스틱');
-    if(INST.drums.on)   L.push('  · Drums (ch9)   -> 브러시·소프트 퍼크 / Drum Kit');
-    if(CINE.has(gsel)){
-      L.push('  · Horns (ch10)  -> Studio Horns (호른 섹션) — 벅차오름=영웅 테마 / 슬픔·행복=따뜻한 받침');
-      if(gsel==='cineTension'||gsel==='cineSoar') L.push('  · LowBrass (ch11) -> 트롬본·튜바 — 절정 무게(근음·5도 롱톤)');
-      if(gsel!=='cineTension') L.push('  · Harp (ch12)   -> 하프 — 아르페지오·상승 런');
-      if(gsel==='cineTension'||gsel==='cineSoar') L.push('  · Choir (ch13)  -> 합창 Aahs — 절정 성벽');
-      if(gsel!=='cineSorrow') L.push('  · Timpani (ch14) -> 팀파니 — 화성 따라가는 타격·롤');
-      L.push('  · Contrabass (ch15) -> 저현 — 바닥(오스티나토/롱톤)');
-      L.push('  * CC1(다이내믹 레이어)·CC11(익스프레션)이 이미 구워져 있음 — 라이브러리가 CC1로 pp~ff 크로스페이드하도록 설정');
-      L.push('  * 금관·저현은 어택이 느림 — 로직에서 트랙 딜레이 -30~-60ms 보정 권장'); }
-    L.push('  · 무료 추천: Spitfire LABS Soft Piano · BBC SO Discover · Valhalla Supermassive · Piano Book');
+    L.push('──────────────────────────────────────────────────');
+    L.push('■ 1. 트랙 배치 순서 (로직에서 위→아래, 그룹으로)');
+    L.push('──────────────────────────────────────────────────');
+    { const order=[]; 
+      if(INST.drums.on) order.push('Drums(ch9)'); if(INST.bass.on) order.push('Bass(ch3)'); if(prodTracks) order.push('Sub(ch8)');
+      if(INST.piano.on) order.push('Piano(ch0)'); if(prodTracks) order.push('Pad(ch4)');
+      if(INST.strings.on) order.push('Strings(ch1)'); if(INST.winds.on) order.push('Winds(ch2)');
+      if(CINE.has(gsel)){ order.push('Horns(ch10)'); order.push('Contrabass(ch15)'); if(gsel!=='cineTension')order.push('Harp(ch12)'); }
+      if(counterOn) order.push('Counter(ch6)'); if(INST.melody.on) order.push('Melody(ch5)');
+      if(prodTracks) order.push('Riser(ch7)');
+      L.push('   리듬→저음: '+order.filter(x=>/Drums|Bass|Sub/.test(x)).join('  '));
+      L.push('   화성: '+order.filter(x=>/Piano|Pad|Strings|Winds|Horns|Contrabass|Harp/.test(x)).join('  '));
+      L.push('   선율: '+order.filter(x=>/Counter|Melody/.test(x)).join('  '));
+      if(prodTracks) L.push('   FX/보조: Riser(ch7)  + Aux: Reverb Hall, Delay, (드럼)Room');
+      L.push('   * Aux 버스: A=Hall리버브 / B=Delay / C=Room(드럼) — 센드로 보냄'); }
     L.push('');
-    L.push('■ 스테이지·섹션 지도 (이 곡 — 마커에 맞춰 레이어 on/off)');
-    currentSong.forEach(sec=>{ const stg=sec.stage||3; const on=[];
-      if(sec.bassOn) on.push('베이스'); if(prodTracks&&stg>=2) on.push('패드'); if(prodTracks&&stg>=4) on.push('서브');
-      if(sec.drums) on.push('드럼'); if(sec.counterOn) on.push('대선율/현'); if(stg>=5) on.push('옥타브두께');
-      L.push('  · '+sec.label+'  L'+stg+' '+(stgN[stg]||'')+((sec.reps||1)>1?(' x'+sec.reps):'')+(on.length?('  -> +'+on.join('·')):'  -> 피아노만')); });
+    L.push('──────────────────────────────────────────────────');
+    L.push('■ 2. 트랙별 셋업 (음원 · EQ · 컴프 · 센드 — 수치)');
+    L.push('──────────────────────────────────────────────────');
+    L.push('   [넣는 법] 믹서 열기(X) → 트랙 선택 → 채널 스트립 Audio FX 슬롯 클릭 → 아래 플러그인 선택 → 더블클릭해 값 입력');
+    L.push('   [Channel EQ 밴드] Band1=HPF(로우컷) · Band2=로우셸프 · Band3~6=파라메트릭(Freq/Gain/Q) · Band7=하이셸프 · Band8=LPF(하이컷)');
+    L.push('   [컴프] Dynamics>Compressor: Ratio 지정 → Threshold를 내려 GR(게인리덕션 미터)이 목표치 되게 · Attack/Release 입력');
     L.push('');
-    L.push('■ 볼륨 밸런스 목표 (리드 피아노 = 기준 0dB, 상대)');
-    L.push('  리드0 · 화음-3 · 현-6 · 베이스-7 · 드럼-11 · 패드-10 · 서브-13 · 텍스처-16 · 슈머-18 · 리버브-12');
-    L.push('  게인스테이징 피크 -6~-8 dBFS · 마스터 -6 헤드룸 · 목표 -14 LUFS (앰비언트 -16~-18)');
+    trackSetupBlocks().forEach(x=>L.push(x));
     L.push('');
-    L.push('■ 음악 포인트 (이 곡의 레시피)');
+    L.push('   ── 사이드체인(킥 덕킹): Bass/Pad의 Compressor 우측상단 [Side Chain] → Drums(또는 Kick 버스) 선택 → 킥에 2~3dB 덕킹');
+    L.push('   ── 금관 어택 보정: 해당 리전을 왼쪽으로 40~60ms 당김(트랙 딜레이 대용)');
+    L.push('');
+    L.push('──────────────────────────────────────────────────');
+    L.push('■ 3. 공간·톤 설정 ('+G[gsel].name+' 특화 — 리버브·딜레이·EQ·컴프·새추)');
+    L.push('──────────────────────────────────────────────────');
+    { const mx=genreMix();
+      L.push('   [버스 만들기 — 한 번만, 여러 트랙이 공유]');
+      L.push('     1) 아무 트랙 Sends 슬롯 클릭 → Bus > Bus 1 선택 (Aux 채널 자동 생성 · 이름 "Reverb")');
+      L.push('     2) 그 Aux(Reverb) Audio FX 슬롯 → Reverb > ChromaVerb → 아래 리버브 값 입력 (Aux는 Mix/Wet 100%)');
+      L.push('     3) 각 트랙 Sends를 Bus 1로 보내고 옆 노브로 센드량(2번 항목 %) 조절');
+      L.push('     4) 딜레이 = Bus 2(Delay Aux) → Delay > Stereo Delay(노트값 Sync) · 드럼 Room = Bus 3');
+      L.push('');
+      L.push('   · 리버브(Aux A / ChromaVerb): '+mx.rev);
+      L.push('   · 딜레이(Aux B / Stereo Delay): '+mx.dly);
+      L.push('   · EQ 캐릭터(각 트랙 Channel EQ): '+mx.eq);
+      L.push('   · 컴프레션(각 트랙 Compressor): '+mx.comp);
+      L.push('   · 새추레이션: '+mx.sat);
+      L.push('   · 스테레오: '+mx.width); }
+    L.push('');
+    L.push('──────────────────────────────────────────────────');
+    L.push('■ 4. 장르 FX 포인트 ('+G[gsel].name+' 트렌드 반영)');
+    L.push('──────────────────────────────────────────────────');
+    genreFXLines().forEach(x=>L.push('   · '+x));
+    L.push('   * 체인 순서: EQ(정리) → 컴프(다이내믹) → 새추레이션(색) → 리버브/딜레이(공간, Aux Send)');
+    L.push('');
+    L.push('──────────────────────────────────────────────────');
+    L.push('■ 5. 마스터 버스 (수치)');
+    L.push('──────────────────────────────────────────────────');
+    L.push('   [Stereo Out 채널 Audio FX 슬롯에 위→아래 순서로 추가]');
+    L.push('   1) Dynamics>Compressor (글루): Ratio 1.5:1 · Attack 30ms · Release Auto · Threshold를 GR 1~2dB 되게');
+    L.push('   2) EQ>Channel EQ: Band1 HPF 30Hz · Band7 하이셸프 살짝(+0.5~1dB)');
+    let mstep=3;
+    if(gsel==='edm'||['citypop','rock'].indexOf(gsel)>=0){ L.push('   '+(mstep++)+') Multipressor(멀티밴드)/새추: 저역 글루 · 새추레이션 살짝'); }
+    L.push('   '+mstep+') Dynamics>Limiter: Output(실링) -1.0 dB · Gain 올려 목표 '+masterLUFS()+' LUFS');
+    L.push('   * LUFS 측정: Stereo Out에 Metering>Loudness Meter 추가 → Integrated 값 확인');
+    L.push('   * 게인스테이징: 각 트랙 피크 -6~-8 dBFS · 마스터 입력 -6 헤드룸(리미터 전)');
+    L.push('   * 무료 추천: Spitfire LABS · BBC SO Discover · Valhalla Supermassive · TDR Nova(EQ) · TDR Kotelnikov(컴프)');
+    L.push('');
+    L.push('──────────────────────────────────────────────────');
+    L.push('■ 6. 음악 포인트 (이 곡에 구워진 것)');
+    L.push('──────────────────────────────────────────────────');
     { const prog0=(currentSong[0]&&currentSong[0].prog)?currentSong[0].prog:null;
-      if(prog0&&prog0.name) L.push('  · 화성: '+prog0.name+(prog0.feel?(' — '+prog0.feel):''));
-      const CINE_PT={cineSoar:'멜로디 1->5 도약+순차 하행(부점·못갖춘마디) / 현 16분 오스티나토 / 호른=단순·긴 화음(4단계+) / 절정=저금관+합창+팀파니',
-        cineTension:'반음 셀(3대4 어긋남)·한숨·트라이톤 / 현 트레몰로(절정=클러스터) / 저현 8분 조임 / 종지 미해결(의도)',
-        cineSorrow:'한숨 계류(강박 비화성음->하행 해결)·계단식 하행 / 현 4-3 계류 / 하프 느린 아르페지오 / 호른 f 상한(친밀)',
-        cineJoy:'상승 모티프(1-3-5-8)·꾸밈 픽업 / 현 오프비트 리프트 / 하프 촘촘 아르페지오 / 피치카토 바닥'};
-      if(CINE_PT[gsel]) L.push('  · 어법: '+CINE_PT[gsel]);
-      L.push('  · 현: 보이스리딩 레가토 + 마디마다 CC11 활 스웰(커졌다 작아졌다) 구워짐');
-      if(CINE.has(gsel)) L.push('  · CC1(pp~ff 음색)·CC11 구워짐 — 라이브러리 CC1 다이내믹 매핑 확인');
-      L.push('  · 코드 체인지 마커(*표)가 글로벌 마커 트랙에 표시 — 코드진행 눈금');
-      L.push('  · 각 트랙에 [패밀리] Sound/FX/Send 추천 텍스트 포함(이벤트 리스트에서 열람)'); }
+      if(prog0&&prog0.name) L.push('   · 화성: '+prog0.name+(prog0.feel?(' — '+prog0.feel):''));
+      const CINE_PT={cineSoar:'멜로디 1->5 도약+순차 하행 / 현 16분 오스티나토 / 호른=긴 화음 / 절정=저금관+합창+팀파니',
+        cineTension:'반음 셀·트라이톤 / 현 트레몰로 / 저현 8분 조임 / 종지 미해결',
+        cineSorrow:'한숨 계류(강박 비화성음->하행) / 현 4-3 계류 / 하프 느린 아르페지오',
+        cineJoy:'상승 모티프(1-3-5-8) / 현 오프비트 / 하프 아르페지오 / 피치카토 바닥'};
+      if(CINE_PT[gsel]) L.push('   · 어법: '+CINE_PT[gsel]);
+      L.push('   · 멜로디: 강박=화음톤 / 약박=색깔음(반음 이끔·차용) 5~8% 믹스, 겹침 제거');
+      L.push('   · 현: 보이스리딩 레가토 + CC11 활 스웰(마디마다) / 동일 코드 연속 시 전위 회전');
+      L.push('   · 코드 체인지 마커(*)가 글로벌 마커 트랙에 — 코드진행 눈금');
+      L.push('   · 구조: 인트로/아웃트로 4·8 · 벌스 8(빠르면16) · 코러스 8 — 모두 짝수·4배수'); }
     L.push('');
-    L.push('■ MIDI 프렙 권장');
-    L.push('  felt 벨로시티 55-85 · 퀀타이즈 70-85%(비하인드 5-15ms) · 레가토+서스테인(CC64) · 리드 옥타브 위');
+    L.push('■ 7. MIDI 프렙 체크리스트');
+    L.push('   [ ] Melody(ch5) 가이드 뮤트 또는 내 멜로디로 교체');
+    L.push('   [ ] 각 트랙 GM -> 실제 음원 교체');
+    L.push('   [ ] 벨로시티 확인(felt 55~85) · 퀀타이즈 70~85%(비하인드 5~15ms)');
+    L.push('   [ ] CC11/CC64 라이브러리 매핑 확인'+(CINE.has(gsel)?' · CC1 다이내믹':''));
+    L.push('   [ ] Aux 리버브/딜레이 버스 생성 후 센드 연결');
+    L.push('   [ ] 게인스테이징 → 마스터 리미터 → LUFS 측정');
     L.push('');
-    L.push('※ 믹스·마스터 상세는 「뉴에이지 프로덕션 핸드북」 참조.');
+    L.push('※ 상세 이론은 「뉴에이지 프로덕션 핸드북」 참조.');
     return L.join('\n');
   }
   function downloadSetupSheet(){ const txt=buildSetupSheet();
