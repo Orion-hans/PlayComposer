@@ -2490,6 +2490,19 @@
     if([46,0,24,25,26,107,105].indexOf(gm)>=0) return 'plucked'; // 발현: 가야금·하프·피아노 — 음 많고 또렷, 짧은 음가
     return 'wind';                                              // 관악: 대금·플루트·피리·클라리넷·트럼펫 — 호흡으로 노래, 긴 음·순차
   }
+  function counterGm(){ // 대선율: 현 섹션이 무엇이냐에 따라 겹치지 않는 솔로 현
+    const sg=(INST.strings&&INST.strings.gm)||48;
+    if(sg===42) return 41;      // 현=첼로 → 대선율=비올라
+    if(sg===40) return 42;      // 현=바이올린 → 대선율=첼로
+    return 42; }               // 현=앙상블/트레몰로 → 대선율=첼로
+  function counterName(){ return ({41:'Solo Viola',42:'Solo Cello',40:'Solo Violin'})[counterGm()]||'Solo Cello'; }
+  function stringsName(){ return ({48:'Legato Strings',40:'Violins',42:'Cellos',44:'Tremolo Strings'})[(INST.strings&&INST.strings.gm)||48]||'Legato Strings'; }
+  function windsGm(){ // 관악 섹션 톱: 선율악기와 같은 음색이면 대비되는 악기로
+    const wg=(INST.winds&&INST.winds.gm)||73;
+    if(wg===200) return 73;
+    if(INST.melody&&INST.melody.on&&INST.melody.gm===wg) return (wg===73)?72:73; // 플루트 겹침 → 피콜로
+    return wg; }
+  function windsName(){ const g=windsGm(); return ({73:'Flute',72:'Piccolo',68:'Oboe',71:'Clarinet',70:'Bassoon',65:'Alto Sax'})[g]||'Winds'; }
   function melVoiceOf(){ const g=INST.melody.gm; if(g===0||g===4||g===6||g===11||instClass(g)==='plucked') return 'piano'; if(instClass(g)==='bowed') return 'strings'; return 'winds'; }
   let songMotif=null; // 곡 시그니처: 음정 모티프 + 훅 결정성 시드
   const HOOK_CON=[[0,2,4,2,0],[0,-1,0,2,4],[4,2,0,2,0],[0,0,3,2,0],[0,2,0,-1,0],[0,3,2,4,2]]; // 가창성 좋은 윤곽(아치·상승·낙하회귀·도약회귀·턴)
@@ -3854,14 +3867,14 @@
       out.sort((a,b)=>a.tick-b.tick || ((a.cc?2:a.on)-(b.cc?2:b.on)));
       return out; }
     if(INST.melody.on) groups.push({gm:INST.melody.gm,ch:5,role:'melody',key:'melody'});
-    if(counterOn) groups.push({gm:(INST.strings.gm||42),ch:6,role:'counter',key:'counter'});
+    if(counterOn) groups.push({gm:counterGm(),ch:6,role:'counter',key:'counter'}); // 대선율=솔로 현(현 섹션과 다른 악기) — 이름과 실제 음색 일치
     if(INST.piano.on) groups.push({gm:INST.piano.gm,ch:0,role:'chord',key:'piano'});
     if(INST.strings.on) groups.push({gm:INST.strings.gm,ch:1,role:(CINE.has(gsel)?'cinestr':'chord'),key:'strings'});
     if(INST.winds.on){ if(INST.winds.gm===200 && !CINE.has(gsel)){ // 목관 섹션: 플루트(고·민첩)·오보에(중·노래)·바순(저·받침) 분리
-        groups.push({gm:73,ch:2,role:'secFl',key:'winds'});
+        groups.push({gm:windsGm(),ch:2,role:'secFl',key:'winds'});
         groups.push({gm:68,ch:14,role:'secOb',key:'winds2'});
         groups.push({gm:70,ch:15,role:'secBsn',key:'winds3'}); }
-      else groups.push({gm:(INST.winds.gm===200?73:INST.winds.gm),ch:2,role:'top',key:'winds'}); }
+      else groups.push({gm:windsGm(),ch:2,role:'top',key:'winds'}); }
     if(INST.bass.on) groups.push({gm:INST.bass.gm,ch:3,role:'bass',key:'bass'});
     if(INST.drums.on) groups.push({gm:0,ch:9,role:'drums',key:'drums'});
     if(prodTracks){ groups.push({gm:89,ch:4,role:'pad',key:'pad'});    // Pad 2 (Warm) — 앰비언트 지속층
@@ -3873,6 +3886,7 @@
       if(INST.harp.on!==false && gsel!=='cineTension') groups.push({gm:46,ch:12,role:'harp',key:'harp'}); // Harp — 아르페지오·상승 런
       if(gsel==='cineTension'||gsel==='cineSoar') groups.push({gm:52,ch:13,role:'choir',key:'choir'}); // Choir Aahs — 절정 성벽
       if(gsel!=='cineSorrow') groups.push({gm:47,ch:14,role:'timpani',key:'timpani'}); // Timpani — 화성 따라가는 저역 타격
+      groups.push({gm:0,ch:9,role:'orchcym',key:'orchcym'}); // 오케 심벌(크래시·서스펜디드) — 별도 트랙(팀파니와 뭉치지 않게)
       groups.push({gm:43,ch:15,role:'cbass',key:'cbass'}); }           // Contrabass — 오케 바닥(오스티나토/롱톤)
     else { // 일반 장르: 금관=롱톤 받침(4단계+), 하프=아르페지오 — 악기군 특성 반영
       if(INST.brass.on){ if(INST.brass.gm===61){ // 브라스 섹션: 호른(중)·트롬본(저)·트럼펫(고) 분리 — 각자 음역·주법
@@ -3881,6 +3895,11 @@
           groups.push({gm:56,ch:13,role:'secTpt',key:'brass3'}); }
         else groups.push({gm:INST.brass.gm,ch:10,role:'brassLong',key:'brass'}); }
       if(INST.harp.on) groups.push({gm:INST.harp.gm,ch:12,role:'harpArp',key:'harp'}); }
+    if(gsel==='epicaeol'||gsel==='classic'){ // 오케스트라 편성: 팀파니·오케 심벌을 드럼킷과 분리된 트랙으로
+      const usedO=new Set(groups.map(g=>g.ch)); usedO.add(9);
+      let chT=null; for(const cc of [15,14,13,10]){ if(!usedO.has(cc)){ chT=cc; break; } }
+      if(chT!=null) groups.push({gm:47,ch:chT,role:'timpani',key:'timpani'});
+      groups.push({gm:0,ch:9,role:'orchcym',key:'orchcym'}); }
     // 듀엣: 여성 보컬 트랙 분리 + 파트 배분(1절 남 → 2절 여 → 후렴은 함께 옥타브)
     const duetOn=(vocType==='duet' && INST.melody.on && INST.melody.gm===54);
     const duetMap={}; let duetByRep=false;
@@ -4198,7 +4217,21 @@
             const cv=[c.notes[0],c.notes[1]||c.notes[0]+4,c.notes[2]||c.notes[0]+7].map(m=>{let x=m; while(x>76)x-=12; while(x<55)x+=12; return x;});
             cv.forEach(m=>{ ev.push({tick:T,on:1,note:m,vel:Math.round(64*inA)}); ev.push({tick:T+measure-8,on:0,note:m}); }); }
             else if(gsel==='cineTension' && stg>=4){ const m=Math.max(50,c.bass); ev.push({tick:T,on:1,note:m,vel:Math.round(46*inA)}); ev.push({tick:T+measure-8,on:0,note:m}); } }
+          else if(grp.role==='orchcym'){ // 오케 심벌: 큰 도약 진입 첫 마디에 크래시 + 정지 마디에 서스펜디드 롤(드럼킷과 별도 트랙)
+            const stg=sec.stage||3, firstBar=(si===0 && r===0);
+            if(firstBar && stg>=5 && gsel!=='cineSorrow'){ ev.push({tick:T,on:1,note:49,vel:Math.round(112*Math.max(0.8,inA))}); ev.push({tick:T+Math.round(measure*0.9),on:0,note:49}); } // 크래시(카사) — 슬픔 무드는 제외(라멘트에 과함)
+            if(stopWinAt(T+Math.round(measure*0.9))){ // 터짐 직전 마디: 서스펜디드 심벌 롤(크레셴도)
+              const beatsC=Math.max(2,Math.round(meterQuarters())), endC=Math.round(measure*(beatsC-1)/beatsC), N=Math.max(6,Math.round(endC/(measure/16)));
+              for(let k=0;k<N;k++){ const ct=T+Math.round(k*endC/N); ev.push({tick:ct,on:1,note:52,vel:Math.max(40,Math.min(120,Math.round(46+ (k/(N-1))*62)))}); ev.push({tick:ct+Math.max(20,Math.round(measure/16)-24),on:0,note:52}); } } // off를 앞당겨 인접 타가 병합되지 않게
+          }
           else if(grp.role==='timpani'){ const stg=sec.stage||3; const tp=Math.max(36,Math.min(50,c.bass-12)); // 팀파니: 근음(화성 따라감)
+            if(gsel==='epicaeol'||gsel==='classic'){ // 오케 편성: 후렴부터 다운비트 강타, 하이라이트는 반마디마다 + 정지 마디는 롤로 밀어올림
+              if(stopWinAt(T+Math.round(measure*0.9))){ const beatsT=Math.max(2,Math.round(meterQuarters())), endT=Math.round(measure*(beatsT-1)/beatsT), N=Math.max(6,Math.round(endT/(measure/16)));
+                for(let k=0;k<N;k++){ const tt=T+Math.round(k*endT/N); ev.push({tick:tt,on:1,note:tp,vel:Math.max(40,Math.min(122,Math.round(52+(k/(N-1))*66)))}); ev.push({tick:tt+90,on:0,note:tp}); } }
+              else if(stg>=6){ [0,0.5].forEach(pp=>{ const t2=T+Math.round(measure*pp); ev.push({tick:t2,on:1,note:tp,vel:Math.round(100*inA)}); ev.push({tick:t2+150,on:0,note:tp}); }); }
+              else if(stg>=4){ ev.push({tick:T,on:1,note:tp,vel:Math.round(92*inA)}); ev.push({tick:T+150,on:0,note:tp}); }
+            }
+            else
             if(gsel==='cineSoar' && stg>=4){ [0,0.5].forEach(pp=>{ const st2=T+Math.round(measure*pp); ev.push({tick:st2,on:1,note:tp,vel:Math.round(96*inA)}); ev.push({tick:st2+140,on:0,note:tp}); }); }
             else if(gsel==='cineTension' && stg>=3){ ev.push({tick:T,on:1,note:tp,vel:Math.round(84*inA)}); ev.push({tick:T+140,on:0,note:tp}); }
             else if(gsel==='cineJoy' && stg>=5){ ev.push({tick:T,on:1,note:tp,vel:Math.round(72*inA)}); ev.push({tick:T+140,on:0,note:tp}); }
@@ -4255,17 +4288,17 @@
       ev=applyStops(ev); // 터짐 직전 마지막 박 = 전 악기 정지
       ev=coalesceNotes(ev);
       let bytes=[];
-      { const roleEn={melody:((INST&&INST.melody&&INST.melody.gm===54)?'Vocal Guide (replace with your vocal)':(skeletonMode?'Melody (GUIDE - replace or mute)':'Melody')),counter:'Counter Melody',piano:'Piano',piano2:'Piano 2 (Theme ostinato)',vocal2:'Vocal 2 - Female (duet)',strings:'Strings',winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (section top)':'Winds'),bass:'Bass',pad:'Pad (ambient layer)',sub:'Sub Bass (L4+)',riser:'FX Riser (pre-drop)',horns:'French Horns',lowbrass:'Low Brass (Tbn/Tuba)',harp:'Harp',brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (section mid)':'Brass (long tones)'),brass2:'Trombones (section low)',brass3:'Trumpets (section top)',winds2:'Oboe (section mid)',winds3:'Bassoon (section low)',choir:'Choir (Aahs)',timpani:'Timpani',cbass:'Contrabass (low str)'};
-        const GMN={0:'Grand Piano',4:'E.Piano',6:'Harpsichord',11:'Vibraphone',73:'Flute',75:'Pan Flute',40:'Violin',42:'Cello',46:'Harp',48:'String Ens',56:'Trumpet',65:'Alto Sax',68:'Oboe',71:'Clarinet',32:'Acoustic Bass',33:'Finger Bass',35:'Fretless Bass',89:'Warm Pad',38:'Synth Bass',119:'Reverse Cymbal',60:'French Horn',57:'Trombone',58:'Tuba',52:'Choir Aahs',47:'Timpani',43:'Contrabass',44:'Tremolo Strings',24:'Nylon Guitar',104:'Sitar',70:'Bassoon'};
+      { const roleEn={melody:((INST&&INST.melody&&INST.melody.gm===54)?'Vocal Guide (replace with your vocal)':(skeletonMode?'Melody (GUIDE - replace or mute)':'Melody')),counter:'Counter Melody',piano:'Piano',piano2:'Piano 2 (Theme ostinato)',vocal2:'Vocal 2 - Female (duet)',orchcym:'Orchestral Cymbals (crash/suspended)',strings:'Strings',winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (section top)':'Winds'),bass:'Bass',pad:'Pad (ambient layer)',sub:'Sub Bass (L4+)',riser:'FX Riser (pre-drop)',horns:'French Horns',lowbrass:'Low Brass (Tbn/Tuba)',harp:(({46:'Harp',24:'Nylon Guitar (plucked)',104:'Sitar / Plucked'})[(INST&&INST.harp&&INST.harp.gm)||46]||'Harp'),brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (section mid)':'Brass (long tones)'),brass2:'Trombones (section low)',brass3:'Trumpets (section top)',winds2:'Oboe (section mid)',winds3:'Bassoon (section low)',choir:'Choir (Aahs)',timpani:'Timpani',cbass:'Contrabass (low str)'};
+        const GMN={0:'Grand Piano',4:'E.Piano',6:'Harpsichord',11:'Vibraphone',23:'Bandoneon',54:'Voice',72:'Piccolo',41:'Viola',45:'Pizzicato Str',61:'Brass Sec',73:'Flute',75:'Pan Flute',40:'Violin',42:'Cello',46:'Harp',48:'String Ens',56:'Trumpet',65:'Alto Sax',68:'Oboe',71:'Clarinet',32:'Acoustic Bass',33:'Finger Bass',35:'Fretless Bass',89:'Warm Pad',38:'Synth Bass',119:'Reverse Cymbal',60:'French Horn',57:'Trombone',58:'Tuba',52:'Choir Aahs',47:'Timpani',43:'Contrabass',44:'Tremolo Strings',24:'Nylon Guitar',104:'Sitar',70:'Bassoon'};
         // 추천 악기(트랙명 앞) + 느낌(캐릭터). 실제 제품이 없어도 '어떤 느낌 악기'인지 알 수 있게.
-        const REC_SOUND={ piano:'Felt Piano', melody:(INST.melody.gm===54?((vocType==='duet')?'Male Vocal':((vocType==='male')?'Male Vocal':'Female Vocal')):(INST.melody.gm===0?'Felt Piano':(GMN[INST.melody.gm]||'Lead'))), vocal2:'Female Vocal', piano2:'Felt Piano', counter:'Solo Cello', strings:'Legato Strings', winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (sec)':'Flute/Oboe'), bass:'Warm Bass', pad:'Warm Pad', sub:'Sine Sub', riser:'Riser FX',
-          horns:'French Horns', lowbrass:'Trombone/Tuba', harp:'Harp', brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (sec)':'Brass'), brass2:'Trombones', brass3:'Trumpets', winds2:'Oboe', winds3:'Bassoon', choir:'Choir Aahs', timpani:'Timpani', cbass:'Contrabass' };
+        const REC_SOUND={ piano:'Felt Piano', melody:(INST.melody.gm===54?((vocType==='duet')?'Male Vocal':((vocType==='male')?'Male Vocal':'Female Vocal')):(INST.melody.gm===0?'Felt Piano':(GMN[INST.melody.gm]||'Lead'))), vocal2:'Female Vocal', piano2:'Felt Piano', orchcym:'Orch Cymbals', timpani:'Timpani', counter:counterName(), strings:stringsName(), winds:(INST&&INST.winds&&INST.winds.gm===200?'Woodwind Sec':windsName()), bass:'Warm Bass', pad:'Warm Pad', sub:'Sine Sub', riser:'Riser FX',
+          horns:'French Horns', lowbrass:'Trombone/Tuba', harp:(({46:'Harp',24:'Nylon Guitar',104:'Sitar'})[(INST&&INST.harp&&INST.harp.gm)||46]||'Harp'), brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (sec)':'Brass'), brass2:'Trombones', brass3:'Trumpets', winds2:'Oboe', winds3:'Bassoon', choir:'Choir Aahs', timpani:'Timpani', cbass:'Contrabass' };
         const REC_FEEL={ piano:'warm, intimate, soft-hammer (felt) - close mic', melody:(INST.melody.gm===54?'lead vocal - center, front of mix':'expressive, singing lead - sits above the mix'), vocal2:'duet partner - center, pairs with lead', piano2:'theme ostinato - quiet, behind the band', counter:'warm, mournful inner voice', strings:'lush, singing, slow-bow swell - not staccato',
           winds:'breathy, airy, agile', bass:'round, warm, foundational - felt not heard', pad:'soft, wide, atmospheric wash', sub:'pure low weight (mono)', riser:'rising tension into the drop',
           horns:'noble, broad, warm - long notes, no fast runs', lowbrass:'heavy, weighty - power at climax only', harp:'magical, flowing, delicate arpeggios', brass:'bold, broad, sustained', brass2:'low weight, glue', brass3:'bright, brilliant, fanfare', winds2:'singing, plaintive (oboe)', winds3:'dark, reedy low support', choir:'vast, sacred, sustained wall', timpani:'deep tuned hits - follows harmony', cbass:'the floor of the orchestra' };
-        const soundFront=(grp.ch===9)?'Drum Kit':(REC_SOUND[grp.key]||GMN[grp.gm]||('GM '+grp.gm));
-        const roleTag=(grp.ch===9)?'Drums / Perc':(roleEn[grp.key]||grp.key);
-        const nm=(grp.ch===9)?roleTag:(soundFront.replace(/ \(sec\)$/,'')===roleTag.replace(/ \(section[^)]*\)$/,'')?roleTag:(soundFront+' | '+roleTag)); // 추천 악기가 맨 앞(중복이면 역할만)
+        const soundFront=(grp.ch===9 && grp.role!=='orchcym')?'Drum Kit':(REC_SOUND[grp.key]||GMN[grp.gm]||('GM '+grp.gm));
+        const roleTag=(grp.ch===9 && grp.role!=='orchcym')?'Drums / Perc':(roleEn[grp.key]||grp.key);
+        const nm=(grp.ch===9 && grp.role!=='orchcym')?roleTag:(soundFront.replace(/ \(sec\)$/,'')===roleTag.replace(/ \(section[^)]*\)$/,'')?roleTag:(soundFront+' | '+roleTag)); // 추천 악기가 맨 앞(중복이면 역할만)
         const nb=Array.from(new TextEncoder().encode(nm));
         bytes=bytes.concat([0,0xFF,0x03]).concat(vlq(nb.length)).concat(nb);
         // 트랙별 로직 추천(FF01 텍스트) — 이벤트 리스트/트랙에서 열람. ASCII만.
@@ -4292,6 +4325,7 @@
           winds3:'Sound: Bassoon patch | FX: EQ(HPF60)>Comp | low root support | Send: Hall',
           choir:'Sound: LABS Choir / Spitfire | FX: EQ(HPF200,10k +1) | Send: Orch Hall (most wet)',
           timpani:'Sound: Sampler Timpani (pitched!) / BBC Perc | FX: EQ(60-80 -2,5k +1) | Send: Orch Hall',
+          orchcym:'Sound: Orchestral Cymbals (crash + suspended roll) - separate from drum kit | FX: EQ(HPF200)>Hall 30% | note49=crash, note52=suspended roll',
           vocal2:'Sound: FEMALE VOCAL GUIDE (duet) - replace with your take | FX: EQ(HPF120,3-5k +2)>Comp 3:1 GR4-6 | Send: Plate 18%',
           piano2:'Sound: 2nd Piano (soft/felt, LABS) | FX: EQ(HPF200, 3k -1)>Comp 1.5:1 | theme ostinato, very quiet, grows with section | Send: Hall 20%',
           cbass:'Sound: Studio Strings Bass / BBC | FX: EQ(HPF40)>Comp | Send: Orch Hall' };
@@ -4530,6 +4564,19 @@
       '버스 EQ(Ch EQ): HPF 30Hz · 400Hz -1dB · 5kHz +2dB(어택) · 10kHz +1dB',
       '병렬 컴프(Comp, 병렬): 8:1 · Attack 5ms · Release 80ms · GR 10~15dB · 블렌드 30~40%',
       '센드(Sends→Bus): Room 0.6s, 10%'+(gsel==='citypop'?' · 스네어 게이트 리버브 0.3s':'')]); }
+    if(gsel==='epicaeol'){
+      blk('Timpani  (오케 저역 타악 — 드럼과 별도 트랙)', [
+        '음원(Instrument 슬롯): Timpani (BBC SO Discover / Studio Strings 계열 퍼커션)',
+        '역할: 후렴부터 다운비트 강타 · 하이라이트는 반마디마다 · 터짐 직전 마디는 16분 롤 크레셴도로 밀어 올림',
+        'EQ(Channel EQ): Band1 HPF 40Hz · Band4 80Hz +1.5dB(무게) · Band6 3kHz +1dB(막대 어택)',
+        '컴프(Comp): 2:1 · Attack 20ms · Release 150ms · GR 2~3dB',
+        '센드(Sends→Bus): Hall '+rv(2.8)+'s, 25%']);
+      blk('Orch Cymbals  (카사·서스펜디드 — 드럼킷과 별도 트랙)', [
+        '음원(Instrument 슬롯): 오케스트라 심벌 (크래시 + 서스펜디드)',
+        '노트 맵: 49 = 크래시(카사, 후렴·하이라이트 첫 박) · 52 = 서스펜디드 롤(터짐 직전 크레셴도)',
+        'EQ(Channel EQ): Band1 HPF 200Hz · Band7 하이셸프 10kHz +1dB',
+        '센드(Sends→Bus): Hall '+rv(2.8)+'s, 30% — 드럼 Room이 아니라 오케 홀로']);
+    }
     if(prodTracks){
       blk('Pad ch4', [
         '음원(Instrument 슬롯): Alchemy Warm Pad / Analog 3-레이어',
@@ -4577,13 +4624,13 @@
     L.push('■ 1. 트랙 배치 순서 (로직에서 위→아래, 그룹으로)');
     L.push('──────────────────────────────────────────────────');
     { const order=[]; 
-      if(INST.drums.on) order.push('Drums(ch9)'); if(INST.bass.on) order.push('Bass(ch3)'); if(prodTracks) order.push('Sub(ch8)');
+      if(INST.drums.on) order.push('Drums(ch9)'); if(gsel==='epicaeol'||CINE.has(gsel)){ order.push('Timpani'); order.push('OrchCymbals'); } if(INST.bass.on) order.push('Bass(ch3)'); if(prodTracks) order.push('Sub(ch8)');
       if(INST.piano.on) order.push('Piano(ch0)'); if(INST.piano.on && songTheme) order.push('Piano2(테마)'); if(prodTracks) order.push('Pad(ch4)');
       if(INST.strings.on) order.push('Strings(ch1)'); if(INST.winds.on) order.push('Winds(ch2)');
       if(CINE.has(gsel)){ order.push('Horns(ch10)'); order.push('Contrabass(ch15)'); if(gsel!=='cineTension')order.push('Harp(ch12)'); }
       if(counterOn) order.push('Counter(ch6)'); if(INST.melody.on) order.push('Melody(ch5)');
       if(prodTracks) order.push('Riser(ch7)');
-      L.push('   리듬→저음: '+order.filter(x=>/Drums|Bass|Sub/.test(x)).join('  '));
+      L.push('   리듬→저음: '+order.filter(x=>/Drums|Bass|Sub|Timpani|OrchCym/.test(x)).join('  '));
       L.push('   화성: '+order.filter(x=>/Piano|Pad|Strings|Winds|Horns|Contrabass|Harp/.test(x)).join('  '));
       L.push('   선율: '+order.filter(x=>/Counter|Melody/.test(x)).join('  '));
       if(prodTracks) L.push('   FX/보조: Riser(ch7)  + Aux: Reverb Hall, Delay, (드럼)Room');
@@ -4693,7 +4740,7 @@
       counterOn=(gsel==='cineSorrow'||gsel==='cineSoar'); }
     else if(gsel==='celtic'){ INST.drums.on=true; INST.bass.on=false; INST.piano.on=false; INST.harp.on=true; INST.harp.gm=46; INST.melody.on=true; INST.melody.gm=73; INST.winds.on=true; INST.winds.gm=73; } // 켈틱=하프+휘슬
     else if(gsel==='classic'){ INST.drums.on=false; INST.bass.on=true; INST.bass.gm=43; INST.piano.on=true; INST.strings.on=true; INST.strings.gm=48; INST.winds.on=true; INST.winds.gm=68; } // 클래식=오케 실내악(콘트라베이스)
-    else if(gsel==='tango'){ INST.drums.on=true; INST.bass.on=true; INST.bass.gm=32; INST.piano.on=true; INST.strings.on=true; INST.strings.gm=40; } // 탱고=바이올린
+    else if(gsel==='tango'){ INST.drums.on=true; INST.bass.on=true; INST.bass.gm=43; INST.piano.on=true; INST.strings.on=true; INST.strings.gm=40; INST.melody.on=true; INST.melody.gm=23; } // 탱고 오르케스타 티피카: 반도네온 리드 + 바이올린 섹션 + 첼로 대선율 + 피아노 + 콘트라베이스
     else if(gsel==='gypsy'){ INST.drums.on=false; INST.bass.on=true; INST.bass.gm=32; INST.piano.on=true; INST.melody.on=true; INST.melody.gm=40; INST.harp.on=true; INST.harp.gm=24; } // 집시=기타(발현)+바이올린
     else if(LYRIC_G.has(gsel)){ INST.drums.on=true; INST.bass.on=false; INST.piano.on=true; }
     else { INST.drums.on=true; INST.bass.on=true; INST.piano.on=true; } }
