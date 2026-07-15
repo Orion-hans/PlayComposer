@@ -454,7 +454,7 @@
       <button type="button" id="themeMidiBtn" class="build-midi" style="display:none">💾 MIDI</button>
     </div>
     <div class="struct-row make-row"><span class="build-lab">길이</span><span class="dur-in"><input type="number" id="durMin" min="0" max="20" placeholder="분" inputmode="numeric">:<input type="number" id="durSec" min="0" max="59" placeholder="초" inputmode="numeric"></span><button type="button" id="applyDur" class="apply-dur">⏱ 적용</button><button type="button" id="durReset" class="dur-reset" title="분·초 비우기(자동)">↺</button><span id="applyDurMsg" class="dur-hint"></span></div>
-    <div class="struct-row build-row"><span class="build-lab">구조</span><select id="structSel"></select><span class="build-lab">빌드업</span><select id="buildupSel"><option value="genre">장르 기본</option><option value="modern">모던 팝 (훅 선행)</option><option value="edmdrop">EDM 드롭</option><option value="breakdown">브레이크다운 대비</option><option value="gentle">완만 (앰비언트)</option><option value="flat">평탄</option></select></div>
+    <div class="struct-row build-row"><span class="build-lab">구조</span><select id="structSel"></select><span class="build-lab">빌드업</span><select id="buildupSel"><option value="genre">장르 기본</option><option value="modern">모던 팝 (훅 선행)</option><option value="edmdrop">EDM 드롭</option><option value="breakdown">브레이크다운 대비</option><option value="gentle">완만 (앰비언트)</option><option value="flat">평탄</option></select><span class="build-lab" id="vocLab">보컬</span><select id="vocSel"><option value="female">여성</option><option value="male">남성</option><option value="duet">듀엣 (남·여)</option></select></div>
     <div class="struct-row build-row na-row" id="naGroup"><span class="build-lab">전조</span><select id="modSel" class="mod-narrow"><option value="auto">자동</option><option value="0">없음</option><option value="2">온음↑</option><option value="1">반음↑</option><option value="-1">반음↓</option></select><label class="pivot-tog"><input type="checkbox" id="pivotOn" checked> 피벗</label><span class="na-cluster"><label class="na-main" title="아르페지오 변환 — 출력(재생·MIDI)에 적용"><input type="checkbox" id="pianoNA"> 아르페지오 변환</label><span class="na-subs"><label class="na-sub"><input type="checkbox" id="naDrums"> 🥁 드럼</label><label class="na-sub">색 <select id="naLevel"><option value="1">은은</option><option value="2" selected>따뜻</option><option value="3">풍부</option></select></label></span></span></div>
     <div id="themeMsg" class="theme-msg">테마를 생성하고 ▶ 로 들어보세요</div>
     <div id="scoreView" class="score-view" style="display:none"></div>
@@ -516,6 +516,24 @@
 
   // 진행 데이터: step = [roman, rootSemi(으뜸음 기준), quality]
   const G={
+    epicaeol:{name:'오케스트라 에이올리안', note:'자연단조 노래곡 — 현·호른·팀파니가 받치는 웅장한 편성. 벌스는 여백을 두고, 후렴에서 전원이 터져요',
+      progs:[
+        {name:'i–VI–III–VII (웅장 순환)', mode:'minor', steps:[['i',0,'min'],['VI',8,'maj'],['III',3,'maj'],['VII',10,'maj']],
+          feel:'단조의 그늘 위로 III·VI 장화음이 빛처럼 열리는 <b>웅장한 순환</b> — 후렴에서 오케스트라가 터지기 좋아요.',
+          theory:'i–♭VI–♭III–♭VII. 평행장조 색(♭III·♭VI)이 넓게 퍼져 노래 선율을 크게 받쳐 줍니다. 이끔음이 없어 종지가 부드럽고 반복해도 지치지 않아요.'},
+        {name:'i–VII–VI–VII (에이올리안 물결)', mode:'minor', steps:[['i',0,'min'],['VII',10,'maj'],['VI',8,'maj'],['VII',10,'maj']],
+          feel:'♭7로 내려왔다 다시 감기는 물결 — 벌스에 여백을 주고 후렴을 기다리게 해요.',
+          theory:'자연단조 i–♭VII–♭VI–♭VII. 하행 저음선(1–♭7–♭6–♭7)이 노래 선율 아래에서 넓게 흐릅니다.'},
+        {name:'i–iv–VI–VII (후렴 상승)', mode:'minor', steps:[['i',0,'min'],['iv',5,'min'],['VI',8,'maj'],['VII',10,'maj']],
+          feel:'iv의 깊이에서 VI–VII로 밀어 올리는 — 후렴 폭발 직전의 고조에 잘 맞아요.',
+          theory:'i–iv에서 ♭VI–♭VII로 상행. ♭VII이 i로 되감기며 다음 후렴을 강하게 열어 줍니다.'},
+        {name:'VI–VII–i–i (선언형 후렴)', mode:'minor', steps:[['VI',8,'maj'],['VII',10,'maj'],['i',0,'min'],['i',0,'min']],
+          feel:'♭VI–♭VII로 치고 올라가 i에 착지 — 후렴 첫머리를 선언하듯 터뜨리는 배치예요.',
+          theory:'♭VI–♭VII–i는 자연단조의 대표적 상승 종지. i에 두 마디 머물러 노래가 크게 뻗을 자리를 만듭니다.'},
+        {name:'i–VII–iv–VI (넓은 하행)', mode:'minor', steps:[['i',0,'min'],['VII',10,'maj'],['iv',5,'min'],['VI',8,'maj'],['VII',10,'maj'],['i',0,'min']],
+          feel:'여섯 화음으로 길게 도는 — 간주·브릿지에서 오케스트라가 숨 쉴 공간을 줘요.',
+          theory:'i–♭VII–iv–♭VI–♭VII–i. 6화음 순환이라 프레이즈가 길고, 현의 지속과 호른의 롱톤이 겹겹이 쌓입니다.'}
+      ]},
     lyric:{name:'에이올리안', note:'자연단조 — 대금 산조·상사화풍 한국적 서정. 드럼 없이 피아노 위로 선율이 흘러요',
       progs:[
         {name:'i–VII–VI–VII (에이올리안)', mode:'minor', steps:[['i',0,'min'],['VII',10,'maj'],['VI',8,'maj'],['VII',10,'maj']],
@@ -1050,7 +1068,7 @@
   const GROUPS=[
     ['기악독주곡', ['lyric','lyricPenta','lyricMid','lyricMinyo','newage']],
     ['시네마틱 (무드)', ['cineSoar','cineTension','cineSorrow','cineJoy']],
-    ['팝 발라드', ['pop','ballad','citypop']],
+    ['팝 발라드', ['pop','ballad','citypop','epicaeol']],
     ['교육 동요', ['kids']],
     ['재즈·소울', ['jazz','neosoul','bossa','blues']],
     ['모던·일렉트로닉', ['rock','edm','lofi']],
@@ -1062,7 +1080,7 @@
   ];
 
   // 장르별 랜덤 생성 설정
-  const GENCFG={ kids:{mode:'major'}, pop:{mode:'major'}, ballad:{mode:'major'}, citypop:{mode:'major',sev:true},
+  const GENCFG={ epicaeol:{mode:'minor'}, kids:{mode:'major'}, pop:{mode:'major'}, ballad:{mode:'major'}, citypop:{mode:'major',sev:true},
     jazz:{mode:'major',sev:true,jazz:true}, neosoul:{mode:'major',sev:true}, bossa:{mode:'minor',sev:true,jazz:true},
     blues:{blues:true,mode:'major'}, rock:{mode:'major'}, edm:{mode:'minor'}, lofi:{mode:'major',sev:true},
     gugak:{mode:'modal'}, quartal:{mode:'modal',quartal:true}, classic:{mode:'major'}, celtic:{mode:'modal'}, folk:{mode:'major'}, shanty:{mode:'minor'},
@@ -1245,7 +1263,7 @@
 
   // ===== 보이싱 =====
   const VOICES=[['close','클로즈','한 옥타브 안에 모아 꽉 찬 기본 울림'],['open','오픈','3도를 위로 띄워 트이고 넓은 울림'],['drop2','드롭2','둘째 음을 옥타브 내려 풍성하고 묵직하게'],['inv','전위','3도를 최저음에 둬 부드럽게 이어지는 흐름'],['drone','드론','3도를 비우고 근음·5도만 — 비어 트인 울림(켈틱·국악)']];
-  const VOICEDEF={ pop:'close',ballad:'open',citypop:'open',jazz:'drop2',neosoul:'drop2',bossa:'open',blues:'close',rock:'close',edm:'close',lofi:'open',gugak:'drone',quartal:'open',classic:'close',celtic:'drone', folk:'open', shanty:'close', newage:'open', lyric:'open', lyricPenta:'open', lyricMid:'open', lyricMinyo:'open',
+  const VOICEDEF={ epicaeol:'open', pop:'close',ballad:'open',citypop:'open',jazz:'drop2',neosoul:'drop2',bossa:'open',blues:'close',rock:'close',edm:'close',lofi:'open',gugak:'drone',quartal:'open',classic:'close',celtic:'drone', folk:'open', shanty:'close', newage:'open', lyric:'open', lyricPenta:'open', lyricMid:'open', lyricMinyo:'open',
     kids:'close', dorian:'open', phrygian:'open', lydian:'open', mixolydian:'open', doubleharm:'open', hungarian:'open', phrygdom:'open', gypsy:'drop2', tango:'drop2' };
   let curVoicing='close', voiceVars={};
   function voicingFor(label){ // 섹션별 보이싱(색채 변화)
@@ -1583,6 +1601,8 @@
       rhythmName:'4/4 스트럼', rhythmDesc:'각 박에 또박또박 짚는 4분 컴핑', comp:[0,4,8,12]},
     ballad:{bpm:72, bassName:'루트 지속', bassDesc:'근음을 길게, 후반에 5도로 이동', bassPat:[{s:0,r:'root'},{s:8,r:'fifth'}],
       rhythmName:'느린 분산/지속', rhythmDesc:'화음을 길게 깔고 반마디로 받기', comp:[0,8], compDur:1.4},
+    epicaeol:{bpm:76, bassName:'근음 지속 + 옥타브', bassDesc:'근음을 길게 깔고 후반 옥타브로 밀어 올림 — 오케스트라 저음의 토대', bassPat:[{s:0,r:'root'},{s:8,r:'oct'}],
+      rhythmName:'넓은 지속 + 8분 받침', rhythmDesc:'화음을 길게 깔되 8분으로 얇게 받쳐 노래 자리를 비움', comp:[0,4,8,12], compDur:1.1},
     lyric:{bpm:66, bassName:'피아노 왼손 저음', bassDesc:'드럼·베이스 없이 피아노 왼손이 근음을 길게 받침', bassPat:[{s:0,r:'root'}], bassDur:2.2,
       rhythmName:'잔잔한 분산', rhythmDesc:'서스테인 위로 화음을 길게 펼침', comp:[0,8], compDur:1.6},
     citypop:{bpm:112, bassName:'싱코페이션 루트–옥타브', bassDesc:'당김음 섞인 근음과 옥타브 점프', bassPat:[{s:0,r:'root'},{s:6,r:'octave'},{s:8,r:'root'},{s:11,r:'fifth'},{s:14,r:'octave'}],
@@ -1712,14 +1732,15 @@
     lyricMid:{kick:[0,8],snare:[4,12],hat:[0,4,8,12]},
     lyricMinyo:{kick:[0,8],snare:[4,12],hat:[0,2,4,6,8,10,12,14]},
     gugak:{kick:[0,8],snare:[4,12],hat:[0,4,8,12]},
-    quartal:{kick:[0],snare:[8],hat:[0,4,8,12]}
+    quartal:{kick:[0],snare:[8],hat:[0,4,8,12]},
+    epicaeol:{kick:[0,8],snare:[4,12],hat:[0,4,8,12]}
   };
   const SWING={ jazz:0.6, blues:0.66, lofi:0.5, neosoul:0.4, hungarian:0.56, gypsy:0.55 };
   function slotTime(slot,six,sw){ let tm=slot*six;
     if(sw>0){ if(slot%2===0){ if((slot/2)%2===1) tm+=sw*six; } else { tm+=sw*0.5*six; } }
     return tm; }
   const INST={
-    melody:{label:'선율악기', emoji:'🎶', on:false, gm:73, opts:[[0,'피아노'],[73,'대금·플루트'],[68,'피리·오보에'],[71,'클라리넷'],[40,'해금·바이올린'],[42,'아쟁·첼로'],[75,'팬플루트'],[56,'트럼펫'],[46,'가야금·하프'],[60,'호른']]},
+    melody:{label:'선율악기', emoji:'🎶', on:false, gm:73, opts:[[54,'보컬 가이드 (노래)'],[0,'피아노'],[73,'대금·플루트'],[68,'피리·오보에'],[71,'클라리넷'],[40,'해금·바이올린'],[42,'아쟁·첼로'],[75,'팬플루트'],[56,'트럼펫'],[46,'가야금·하프'],[60,'호른']]},
     piano:{label:'피아노', emoji:'🎹', on:true, gm:0, opts:[[0,'그랜드 피아노'],[4,'일렉트릭 피아노'],[6,'하프시코드'],[11,'비브라폰']]},
     strings:{label:'현 (활)', emoji:'🎻', on:false, gm:48, opts:[[48,'스트링 앙상블'],[40,'바이올린'],[42,'첼로'],[44,'트레몰로 스트링']]},
     harp:{label:'하프 (발현)', emoji:'🪕', on:false, gm:46, opts:[[46,'하프'],[24,'클래식 기타'],[104,'시타르·거문고']]},
@@ -2494,6 +2515,23 @@
     }
     return a.map(({bar,pos,midi,dur})=>({bar,pos,midi,dur}));
   }
+  // ── 보컬 타입: 음역·권장 조성 (노래곡 프리셋용)
+  let vocType='female';
+  const VOC={
+    male:  {name:'남성', lo:48, hi:69, cap:72, tess:'C3~A4 (절정 C5)', keys:'A/B♭/B 단조 — 후렴 최고음이 G4~A4에 오게'},
+    female:{name:'여성', lo:57, hi:79, cap:81, tess:'A3~G5 (절정 A5)', keys:'E/F/F#/G 단조 — 후렴 최고음이 E5~G5에 오게'},
+    duet:  {name:'듀엣', lo:48, hi:79, cap:81, tess:'남 C3~A4 · 여 A3~G5', keys:'F#/G/A 단조 — 남녀 옥타브가 함께 서게'}
+  };
+  function vocOf(){ return VOC[vocType]||VOC.female; }
+  function vocalFit(mel,forceV){ // 노래곡: 부를 수 있는 음역으로(윤곽 유지한 채 옥타브 이동) — 보컬 타입별
+    if(!mel||!mel.length) return mel;
+    const V=forceV||((vocType==='duet')?VOC.male:vocOf()); const LO=V.lo, HI=V.hi;
+    let sh=0, guard=0;
+    const mx=()=>Math.max.apply(null,mel.map(n=>n.midi+sh)), mn=()=>Math.min.apply(null,mel.map(n=>n.midi+sh));
+    while(mx()>HI && guard++<8) sh-=12;
+    guard=0; while(mn()<LO && guard++<8) sh+=12;
+    return mel.map(n=>{ let m=n.midi+sh; while(m>HI)m-=12; while(m<LO)m+=12; return Object.assign({},n,{midi:m}); });
+  }
   function cleanMelody(mel, steps, opts){ if(!mel||!mel.length) return mel; opts=opts||{};
     const simple=!!opts.simple; // 에이올리안 등: 강박 화음톤 스냅 + 성기게
     const chAt=si=>{ const st=steps[si%steps.length]; return chordMidis(st[1],st[2],st[3]).notes.map(n=>((n%12)+12)%12); };
@@ -3061,6 +3099,7 @@
         { let m=(isThemeMode&&themeMelody)?themeMelody:(CINE.has(gsel)?cineMelody(steps,gsel,{rseed:(((songMotif?songMotif.seed:1)+r*7+(HOOK_L[sec.label]!=null?0:13))>>>0)}):genMelody(steps,{intensity:sec.intensity||0.85,rhythmSeed:currentMotif,instClass:instClass(INST.melody.gm),scale:sec.prog.scale,narrow:(gsel==='kids'),cadence:cad,role:role,rseed:rseed,regShift:regShift,peakCap:peakCap}));
           if(!CINE.has(gsel)){ m=cleanMelody(m, steps, {simple:(LYRIC_G.has(gsel)||pianoNA)}); // 겹침 제거 + 앰비언트/에이올리안 화음톤 단순화
             m=colorMelody(m, {tonicPc:((savedTonic+(sec.keyShift||0))%12), minor:(keyMode==='minor'), rseed:(((songMotif?songMotif.seed:1)+r*11+5)>>>0)}); } // 약박 색깔음(반음 이끔·차용)으로 조성 순수함 완화
+          if(INST.melody.gm===54) m=vocalFit(m); // 보컬 가이드 = 노래 가능 음역으로
           sec.mels.push(m); } } }
     tonic=savedTonic; }
   function fitDuration(song){
@@ -3165,6 +3204,7 @@
       let pu=target-1, g=0; while(!inScale(pu)&&g++<3) pu--; if(!inScale(pu)) pu=target-2; // target 아래 스케일 음(한 스텝 접근)
       while(pu-lastNote.midi>10) pu-=12; while(lastNote.midi-pu>14) pu+=12; // 나가는 음역과 과도한 간격 방지
       const durPos=(lastNote.dur||0)/Math.max(1,mq); if(lastNote.pos+durPos>0.86) lastNote.dur=Math.max(0.18,(0.86-lastNote.pos)*mq); // 겹치면 앞음 당겨끊기
+      if(typeof INST!=='undefined' && INST.melody && INST.melody.gm===54){ const PV=(vocType==='duet')?VOC.male:vocOf(); while(pu>PV.hi)pu-=12; while(pu<PV.lo)pu+=12; } // 보컬 가이드: 픽업도 부를 수 있는 음역으로
       lastMel.push({bar:maxBar, pos:0.875, midi:pu, dur:0.5, seam:true}); }
   }
   function buildSong(structKey){
@@ -3816,6 +3856,19 @@
           groups.push({gm:56,ch:13,role:'secTpt',key:'brass3'}); }
         else groups.push({gm:INST.brass.gm,ch:10,role:'brassLong',key:'brass'}); }
       if(INST.harp.on) groups.push({gm:INST.harp.gm,ch:12,role:'harpArp',key:'harp'}); }
+    // 듀엣: 여성 보컬 트랙 분리 + 파트 배분(1절 남 → 2절 여 → 후렴은 함께 옥타브)
+    const duetOn=(vocType==='duet' && INST.melody.on && INST.melody.gm===54);
+    const duetMap={}; let duetByRep=false;
+    if(duetOn){ let vi=0;
+      const nVerse=currentSong.filter(s2=>s2.label==='벌스'||s2.label==='A파트').length;
+      duetByRep=(nVerse<=1); // 벌스가 하나뿐이면 반복(4마디) 단위로 남↔여 교대(듀엣 정석)
+      currentSong.forEach((sec,i2)=>{ const L=sec.label;
+        if(L==='벌스'||L==='A파트'){ duetMap[i2]=duetByRep?'alt':((vi%2===0)?'m':'f'); vi++; }
+        else if(L==='브릿지') duetMap[i2]='f';
+        else duetMap[i2]='both'; });
+      const usedV=new Set(groups.map(g=>g.ch)); usedV.add(9);
+      let chV=null; for(const cc of [15,14,13,12,11,10,3]){ if(!usedV.has(cc)){ chV=cc; break; } }
+      if(chV!=null) groups.push({gm:54, ch:chV, role:'vocal2', key:'vocal2'}); }
     // 2nd 피아노: 테마 오스티나토 전용(빈 채널). 인트로 이후 8마디 뒤부터 은은하게 들어와 곡 내내 테마 유지 → 브레이크 진입이 자연스러움
     let theme2Start=PAD+8*measureTick;
     if(songTheme && INST.piano.on){ const used=new Set(groups.map(g=>g.ch)); used.add(9);
@@ -3835,7 +3888,7 @@
         const nextSec=currentSong[secIdx+1];
         const nsteps=(pianoNA?naSteps(sec.prog.steps):sec.prog.steps); // 뉴에이지 변환(멱등)
         const rb=(grp.role==='bass')?resolveBass(nsteps,undefined):null;
-        const mel=(grp.role==='melody')?genMelody(nsteps,{intensity:sec.intensity,rhythmSeed:currentMotif,instClass:instClass(INST.melody.gm),scale:sec.prog.scale,narrow:(gsel==='kids')}):null;
+        const mel=(grp.role==='melody')?(function(){ let mm=genMelody(nsteps,{intensity:sec.intensity,rhythmSeed:currentMotif,instClass:instClass(INST.melody.gm),scale:sec.prog.scale,narrow:(gsel==='kids')}); if(!CINE.has(gsel)) mm=cleanMelody(mm,nsteps,{simple:(LYRIC_G.has(gsel)||pianoNA)}); if(INST.melody.gm===54) mm=vocalFit(mm); return mm; })():null; // 폴백 선율도 정리·보컬 음역 적용
         const themeMel=(grp.key==='piano'&&sec.label==='인트로')?(sec.introMel||genMelody(nsteps,{intensity:0.6,rhythmSeed:currentMotif,instClass:'plucked',scale:sec.prog.scale})):null;
         const introClr=(sec.label==='인트로');
         const dens=sec.density||'medium', inten=sec.intensity||0.85;
@@ -3854,7 +3907,9 @@
               ev.push({tick:mt,on:1,note:cn.midi,vel:Math.max(44,Math.min(100,Math.round(84*inA)))}); ev.push({tick:mt+md,on:0,note:cn.midi}); }); }
           } else if(grp.role==='melody'){ const melBreath=(melVoiceOf()==='winds'||melVoiceOf()==='strings');
             const themeHold = songTheme && INST.piano.on && ['아웃트로','간주'].indexOf(sec.label)>=0; // 테마만 남는 구간(아웃트로·간주 브레이크) → 멜로디 쉼
-            if(sec.label!=='인트로' && !themeHold) ((sec.mels&&sec.mels[r])||mel).filter(mn=>mn.bar===si).forEach(mn=>{ const mt=T+Math.round(mn.pos*measure), md=Math.max(60,Math.round(mn.dur*TPQ));
+            const dPart = duetOn ? (duetMap[secIdx]==='alt' ? (((r*nsteps.length+si) < (nsteps.length*sec.reps)/2)?'m':'f') : duetMap[secIdx]) : 'both'; // 벌스 앞 절반=남, 뒤 절반=여
+            const duetSkip = duetOn && (dPart==='f'); // 듀엣: 여성 파트 구간은 남성(ch5) 쉼
+            if(sec.label!=='인트로' && !themeHold && !duetSkip) ((sec.mels&&sec.mels[r])||mel).filter(mn=>mn.bar===si).forEach(mn=>{ const mt=T+Math.round(mn.pos*measure), md=Math.max(60,Math.round(mn.dur*TPQ));
               ev.push({tick:mt,on:1,note:mn.midi,vel:Math.max(50,Math.min(124,Math.round(108*inA)))}); ev.push({tick:mt+md,on:0,note:mn.midi});
               if(melBreath && md>=Math.round(TPQ*0.35)){ // 관=브레스·현=활: 지속 멜로디음마다 여림→피크→여림 스웰(악기 고유 익스프레션)
                 ev.push({tick:mt,cc:11,val:72}); ev.push({tick:mt+Math.round(md*0.4),cc:11,val:106}); ev.push({tick:mt+Math.round(md*0.85),cc:11,val:88}); } });
@@ -4024,6 +4079,13 @@
             const sb=Math.max(24,c.bass-24);
             if((sec.stage||3)>=6){ [0,0.5].forEach(pp=>{ const st2=T+Math.round(measure*pp); ev.push({tick:st2,on:1,note:sb,vel:Math.max(64,Math.round(100*inA))}); ev.push({tick:st2+Math.round(measure*0.5)-8,on:0,note:sb}); }); }
             else { ev.push({tick:T,on:1,note:sb,vel:Math.max(60,Math.round(96*inA))}); ev.push({tick:T+measure-8,on:0,note:sb}); } } }
+          else if(grp.role==='vocal2'){ // 여성 보컬(듀엣) — 같은 선율을 여성 음역으로
+            const themeHold2 = songTheme && INST.piano.on && ['아웃트로','간주'].indexOf(sec.label)>=0;
+            const part0=duetMap[secIdx]||'both'; const part=(part0==='alt')?(((r*nsteps.length+si) < (nsteps.length*sec.reps)/2)?'m':'f'):part0;
+            if(sec.label!=='인트로' && !themeHold2 && part!=='m'){
+              const src=vocalFit(((sec.mels&&sec.mels[r])||mel)||[], VOC.female);
+              src.filter(mn=>mn.bar===si).forEach(mn=>{ const mt=T+Math.round(mn.pos*measure), md=Math.max(60,Math.round(mn.dur*TPQ));
+                ev.push({tick:mt,on:1,note:mn.midi,vel:Math.max(50,Math.min(124,Math.round(104*inA)))}); ev.push({tick:mt+md,on:0,note:mn.midi}); }); } }
           else if(grp.role==='theme2'){ // 2nd 피아노: 테마를 작게 유지(인트로는 1st가 제시하므로 쉼) — 코드에 맞춰 매 마디 변형되므로 부딪히지 않음
             if(sec.label!=='인트로' && T>=theme2Start){
               const stg=sec.stage||3;
@@ -4133,7 +4195,7 @@
         else if(grp.role==='bass'){ ev.push({tick:tick,on:1,note:eRoot-24,vel:92}); ev.push({tick:tick+ferm,on:0,note:eRoot-24}); }
         else if(grp.role==='chord'||grp.role==='cinestr'){ [eRoot-12+third,eRoot+7].forEach(m=>{ ev.push({tick:tick,on:1,note:m,vel:52}); ev.push({tick:tick+ferm,on:0,note:m}); }); }
         else if(grp.role==='top'){ ev.push({tick:tick,on:1,note:eRoot+12,vel:68}); ev.push({tick:tick+ferm,on:0,note:eRoot+12}); }
-        else if(grp.role==='melody'){ const mt=tick+Math.round(TPQ*0.5); ev.push({tick:mt,on:1,note:eRoot+12,vel:84}); ev.push({tick:mt+ferm-Math.round(TPQ*0.5),on:0,note:eRoot+12}); }
+        else if(grp.role==='melody'){ let endMelNote=eRoot+12; if(INST.melody.gm===54){ const EV=(vocType==='duet')?VOC.male:vocOf(); while(endMelNote>EV.hi)endMelNote-=12; while(endMelNote<EV.lo)endMelNote+=12; } const mt=tick+Math.round(TPQ*0.5); ev.push({tick:mt,on:1,note:endMelNote,vel:84}); ev.push({tick:mt+ferm-Math.round(TPQ*0.5),on:0,note:endMelNote}); }
         else if(grp.role==='drums'){ ev.push({tick:tick,on:1,note:49,vel:96}); ev.push({tick:tick+Math.round(TPQ*1.6),on:0,note:49}); } // 크래시 심벌
         else if(grp.role==='horns'){ [eRoot-5,eRoot+third-12].forEach(m=>{ ev.push({tick:tick,on:1,note:m,vel:70}); ev.push({tick:tick+ferm,on:0,note:m}); }); }
         else if(grp.role==='lowbrass'){ ev.push({tick:tick,on:1,note:eRoot-24,vel:84}); ev.push({tick:tick+ferm,on:0,note:eRoot-24}); }
@@ -4168,12 +4230,12 @@
       ev=applyStops(ev); // 터짐 직전 마지막 박 = 전 악기 정지
       ev=coalesceNotes(ev);
       let bytes=[];
-      { const roleEn={melody:(skeletonMode?'Melody (GUIDE - replace or mute)':'Melody'),counter:'Counter Melody',piano:'Piano',piano2:'Piano 2 (Theme ostinato)',strings:'Strings',winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (section top)':'Winds'),bass:'Bass',pad:'Pad (ambient layer)',sub:'Sub Bass (L4+)',riser:'FX Riser (pre-drop)',horns:'French Horns',lowbrass:'Low Brass (Tbn/Tuba)',harp:'Harp',brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (section mid)':'Brass (long tones)'),brass2:'Trombones (section low)',brass3:'Trumpets (section top)',winds2:'Oboe (section mid)',winds3:'Bassoon (section low)',choir:'Choir (Aahs)',timpani:'Timpani',cbass:'Contrabass (low str)'};
+      { const roleEn={melody:((INST&&INST.melody&&INST.melody.gm===54)?'Vocal Guide (replace with your vocal)':(skeletonMode?'Melody (GUIDE - replace or mute)':'Melody')),counter:'Counter Melody',piano:'Piano',piano2:'Piano 2 (Theme ostinato)',vocal2:'Vocal 2 - Female (duet)',strings:'Strings',winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (section top)':'Winds'),bass:'Bass',pad:'Pad (ambient layer)',sub:'Sub Bass (L4+)',riser:'FX Riser (pre-drop)',horns:'French Horns',lowbrass:'Low Brass (Tbn/Tuba)',harp:'Harp',brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (section mid)':'Brass (long tones)'),brass2:'Trombones (section low)',brass3:'Trumpets (section top)',winds2:'Oboe (section mid)',winds3:'Bassoon (section low)',choir:'Choir (Aahs)',timpani:'Timpani',cbass:'Contrabass (low str)'};
         const GMN={0:'Grand Piano',4:'E.Piano',6:'Harpsichord',11:'Vibraphone',73:'Flute',75:'Pan Flute',40:'Violin',42:'Cello',46:'Harp',48:'String Ens',56:'Trumpet',65:'Alto Sax',68:'Oboe',71:'Clarinet',32:'Acoustic Bass',33:'Finger Bass',35:'Fretless Bass',89:'Warm Pad',38:'Synth Bass',119:'Reverse Cymbal',60:'French Horn',57:'Trombone',58:'Tuba',52:'Choir Aahs',47:'Timpani',43:'Contrabass',44:'Tremolo Strings',24:'Nylon Guitar',104:'Sitar',70:'Bassoon'};
         // 추천 악기(트랙명 앞) + 느낌(캐릭터). 실제 제품이 없어도 '어떤 느낌 악기'인지 알 수 있게.
-        const REC_SOUND={ piano:'Felt Piano', melody:(INST.melody.gm===0?'Felt Piano':(GMN[INST.melody.gm]||'Lead')), counter:'Solo Cello', strings:'Legato Strings', winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (sec)':'Flute/Oboe'), bass:'Warm Bass', pad:'Warm Pad', sub:'Sine Sub', riser:'Riser FX',
+        const REC_SOUND={ piano:'Felt Piano', melody:(INST.melody.gm===54?((vocType==='duet')?'Male Vocal':((vocType==='male')?'Male Vocal':'Female Vocal')):(INST.melody.gm===0?'Felt Piano':(GMN[INST.melody.gm]||'Lead'))), vocal2:'Female Vocal', piano2:'Felt Piano', counter:'Solo Cello', strings:'Legato Strings', winds:(INST&&INST.winds&&INST.winds.gm===200?'Flute (sec)':'Flute/Oboe'), bass:'Warm Bass', pad:'Warm Pad', sub:'Sine Sub', riser:'Riser FX',
           horns:'French Horns', lowbrass:'Trombone/Tuba', harp:'Harp', brass:(INST&&INST.brass&&INST.brass.gm===61?'Horns (sec)':'Brass'), brass2:'Trombones', brass3:'Trumpets', winds2:'Oboe', winds3:'Bassoon', choir:'Choir Aahs', timpani:'Timpani', cbass:'Contrabass' };
-        const REC_FEEL={ piano:'warm, intimate, soft-hammer (felt) - close mic', melody:'expressive, singing lead - sits above the mix', counter:'warm, mournful inner voice', strings:'lush, singing, slow-bow swell - not staccato',
+        const REC_FEEL={ piano:'warm, intimate, soft-hammer (felt) - close mic', melody:(INST.melody.gm===54?'lead vocal - center, front of mix':'expressive, singing lead - sits above the mix'), vocal2:'duet partner - center, pairs with lead', piano2:'theme ostinato - quiet, behind the band', counter:'warm, mournful inner voice', strings:'lush, singing, slow-bow swell - not staccato',
           winds:'breathy, airy, agile', bass:'round, warm, foundational - felt not heard', pad:'soft, wide, atmospheric wash', sub:'pure low weight (mono)', riser:'rising tension into the drop',
           horns:'noble, broad, warm - long notes, no fast runs', lowbrass:'heavy, weighty - power at climax only', harp:'magical, flowing, delicate arpeggios', brass:'bold, broad, sustained', brass2:'low weight, glue', brass3:'bright, brilliant, fanfare', winds2:'singing, plaintive (oboe)', winds3:'dark, reedy low support', choir:'vast, sacred, sustained wall', timpani:'deep tuned hits - follows harmony', cbass:'the floor of the orchestra' };
         const soundFront=(grp.ch===9)?'Drum Kit':(REC_SOUND[grp.key]||GMN[grp.gm]||('GM '+grp.gm));
@@ -4187,7 +4249,7 @@
           if(['rock','folk','shanty','celtic'].indexOf(gsel)>=0)return'Rock'; if(gsel==='edm')return'EDM'; return'Cls'; })();
         const REC={ piano:'Sound: LABS Soft Piano / Studio Piano | FX: Gain>EQ(HPF30,250 -2,12k +1.5)>Comp 2:1>Phat FX | Send: Long Hall',
           strings:'Sound: BBC SO Discover / Studio Strings (Legato) | FX: EQ(HPF60,300 -2)>Comp 1.5:1 | CC11 bow-swell baked | Send: Hall | TrackDelay -40ms',
-          melody:'Sound: lead per genre (felt piano / flute / solo strings) | FX: EQ>Comp 3:1 | Send: Plate',
+          melody:((INST&&INST.melody&&INST.melody.gm===54)?'Sound: VOCAL GUIDE - replace with your vocal take (or mute) | FX: EQ(HPF100,3-5k +2)>Comp 3:1 A5 R80 GR4-6 | Send: Plate 1.4s 18%':'Sound: lead per genre (felt piano / flute / solo strings) | FX: EQ>Comp 3:1 | Send: Plate'),
           counter:'Sound: Studio Strings solo / Cello | FX: EQ(HPF80)>Comp | Send: Plate',
           winds:'Sound: Flute/Oboe patch (not Studio Horns) | FX: EQ(HPF100,8k +1)>Comp 2:1 | Send: Hall',
           bass:'Sound: Studio Bass / Fingerstyle | FX: Gain>EQ(HPF30,LPF5k)>Comp 4:1>Sat | Send: Dry',
@@ -4205,6 +4267,7 @@
           winds3:'Sound: Bassoon patch | FX: EQ(HPF60)>Comp | low root support | Send: Hall',
           choir:'Sound: LABS Choir / Spitfire | FX: EQ(HPF200,10k +1) | Send: Orch Hall (most wet)',
           timpani:'Sound: Sampler Timpani (pitched!) / BBC Perc | FX: EQ(60-80 -2,5k +1) | Send: Orch Hall',
+          vocal2:'Sound: FEMALE VOCAL GUIDE (duet) - replace with your take | FX: EQ(HPF120,3-5k +2)>Comp 3:1 GR4-6 | Send: Plate 18%',
           piano2:'Sound: 2nd Piano (soft/felt, LABS) | FX: EQ(HPF200, 3k -1)>Comp 1.5:1 | theme ostinato, very quiet, grows with section | Send: Hall 20%',
           cbass:'Sound: Studio Strings Bass / BBC | FX: EQ(HPF40)>Comp | Send: Orch Hall' };
         let rec=REC[grp.key]||('Sound: '+(GMN[grp.gm]||'GM '+grp.gm)); const feel=(grp.ch===9)?'punchy, tight groove':(REC_FEEL[grp.key]||'');
@@ -4236,6 +4299,14 @@
   }
   function genreFXLines(){ // 장르별 FX 가이드(무엇을·어느 트랙에) — TXT/MIDI 공용
     const G_FX={
+      epicaeol:['Vocal/Melody(ch5) -> Ch EQ(HPF 100Hz·250Hz -2dB·3~5kHz +2dB·12kHz +1dB) > 컴프 3:1 A5 R80 GR 4~6dB > Plate 1.4s mix 18% > 1/4 딜레이 fb 12%(구절 끝만)',
+        'Strings(ch1) -> 2~4kHz -1.5dB(보컬 자리 비움) > Hall 2.8s 30% · CC11로 벌스 여리게 → 후렴 활짝',
+        'Brass 섹션(ch10 호른·ch11 트롬본·ch13 트럼펫) -> 후렴·하이라이트만 · 리전 -40~60ms 당김(어택 보정) > Hall 30%',
+        'Harp(ch12) -> 섹션 전환 글리산도 · Hall 32%(가장 wet) — 전환을 매끄럽게 이음',
+        'Bass(ch3 콘트라베이스) -> HPF 30Hz·80Hz +1.5dB > 컴프 4:1 GR 4~6dB · 리버브 없음(드라이)',
+        'Drums(ch9) -> 벌스는 브러시/여리게, 후렴은 병렬 컴프 8:1 GR 10~15dB · 큰 도약 직전 마디는 크래시+탐 필',
+        'master -> 글루 컴프 1.5:1 GR 1~2 > 리미터 -1.0dB > -14 LUFS(노래곡 · 다이내믹 여유)',
+        '핵심: 벌스는 트랙 수를 줄여 노래를 앞세우고, 후렴에서 현+금관+드럼을 한꺼번에 열어 폭발시킴'],
       lyric:['Piano(ch0) -> Ch EQ(HPF 40Hz·3kHz +1) > 컴프 1.5:1(GR 1~2) > Plate/Hall 리버브 3s mix 30% > 1/4 딜레이 fb 12%','Pad(ch4) -> ChromaVerb Large Hall 5s+ > 로우패스 오토메이션(구간마다 열기)','Strings(ch1) -> 롱 홀 리버브 + CC11로 다이내믹','master -> 글루 컴프 1.5:1 GR 1~2 > -16~-18 LUFS','스로우: 프레이즈 끝 리버브 send 순간 상승'],
       newage:['Piano(ch0) -> 소프트 EQ > Hall 3~4s mix 35% > 롱 딜레이','Pad -> 셔머 리버브(Valhalla Supermassive) > 로우패스','master -> -18 LUFS · 넓은 다이내믹(리미터 최소)'],
       lyricMid:['Melody/Piano -> 짧은 룸 0.8s + 살짝 테이프 새추레이션 · 이국 색은 드라이 유지','master -> -16 LUFS'],
@@ -4265,6 +4336,14 @@
   }
   function genreFXAscii(){ // MIDI 메타용 영문 FX(로직 Latin-1)
     const A={
+      epicaeol:['Vocal(ch5): EQ(HPF100,250 -2,3-5k +2,12k +1) > Comp 3:1 A5 R80 GR4-6 > Plate 1.4s 18% > 1/4 delay fb12% (phrase ends)',
+        'Strings(ch1): 2-4k -1.5 (make room for vocal) > Hall 2.8s 30%, CC11 soft verse -> open chorus',
+        'Brass sec (ch10 Hn / ch11 Tbn / ch13 Tpt): chorus+highlight only, region -40~60ms, Hall 30%',
+        'Harp(ch12): transition gliss, Hall 32% (wettest)',
+        'Bass(ch3 contrabass): HPF30, 80 +1.5 > Comp 4:1 GR4-6, dry',
+        'Drums(ch9): soft verse / parallel comp 8:1 GR10-15 chorus; crash+tom fill before big lift',
+        'master: glue 1.5:1 > limiter -1.0 > -14 LUFS (song, keep dynamics)',
+        'KEY: thin the verse so the vocal leads; open strings+brass+drums together at chorus = explosion'],
       lyric:['Piano(ch0): EQ(HPF40,3k+1) > Comp 1.5:1 > Plate/Hall 3s 30% > 1/4 delay fb12%','Pad(ch4): ChromaVerb Hall 5s+ > LPF automation','master: glue 1.5:1 > -16~-18 LUFS','Throw: reverb send bump at phrase ends'],
       newage:['Piano: soft EQ > Hall 3~4s 35% > long delay','Pad: shimmer verb > LPF','master: -18 LUFS wide dynamics'],
       pop:['Lead(ch5): Comp 3:1 > EQ presence 3-5k > Plate 1.2s > 1/8 delay throw','Drums(ch9): parallel comp 8:1 GR10-15 > bus EQ','Bass(ch3): Comp 4:1 > kick sidechain','master: glue > limiter -14 LUFS'],
@@ -4292,6 +4371,7 @@
     return A.pop;
   }
   function trendNote(){ const T={
+    epicaeol:'오케스트라 크로스오버 발라드 — 벌스는 여백·보컬 중심, 후렴에서 현+금관 전원 폭발. 넓은 다이내믹(-14), 보컬 정중앙',
     lyric:'네오클래시컬/앰비언트 — 여백·롱 리버브·소프트 다이내믹, 로파이 질감 살짝',
     lyricPenta:'미니멀 5음계 — 담백·투명, 처리 최소',
     lyricMid:'시네마틱 월드 — 이국 색 드라이 유지 + 짧은 룸',
@@ -4316,7 +4396,7 @@
     gypsy:'집시 스윙 — 브라이트 기타·룸·라이트 컴프',
     cine:'트레일러/시네마틱 — 하이브리드 오케·넓은 다이내믹·서브 강화'
   }; if(CINE.has(gsel))return T.cine; if(T[gsel])return T[gsel]; if(LYRIC_G.has(gsel))return T.lyric; return T.pop; }
-  function masterLUFS(){ if(gsel==='edm')return '-8'; if(['citypop','rock','blues','neosoul'].indexOf(gsel)>=0)return '-11~-12';
+  function masterLUFS(){ if(gsel==='edm')return '-8'; if(gsel==='epicaeol')return '-14'; if(['citypop','rock','blues','neosoul'].indexOf(gsel)>=0)return '-11~-12';
     if(LYRIC_G.has(gsel)||['classic','quartal','gugak'].indexOf(gsel)>=0||CINE.has(gsel))return '-16~-18'; return '-14'; }
   const GENRE_MIX={
     // 서정/앰비언트 (에이올리안·펜타·뉴에이지)
@@ -4325,6 +4405,7 @@
     lyricMid:{rev:'Room 0.8s 18% + 짧은 Hall 2.0s 12%', dly:'짧게 1/8 · fb 8%', eq:'HPF 60Hz · 1.5kHz +1dB(이국 중역) · 6kHz +1dB', comp:'1.5:1 · GR 1~2dB', sat:'테이프 살짝', width:'중간 · 이국 색은 드라이'},
     lyricMinyo:{rev:'Room 1.0s 20% · predelay 12ms', dly:'없음', eq:'HPF 70Hz · 3kHz +1.5dB(밝게)', comp:'1.5:1 · GR 1~2dB', sat:'없음', width:'중간'},
     newage:  {rev:'Shimmer (Valhalla Supermassive) 5.0s+ · 40% · predelay 30ms', dly:'1/2 · fb 20% · 15%', eq:'HPF 40Hz · 부드러운 고역(에어 12kHz +1)', comp:'최소 1.3:1 · GR 1dB', sat:'없음', width:'매우 넓게 · 스테레오 확장'},
+    epicaeol:{rev:'스코어링 Hall (ChromaVerb) 2.8s · 30% · predelay 25ms', dly:'1/4 · fb 12% · mix 10%(보컬만)', eq:'보컬 3~5kHz +2dB 자리 확보 · 현/금관 2~4kHz -1.5dB(보컬 자리 비움) · HPF 40Hz', comp:'보컬 3:1 A5 R80 GR 4~6dB · 오케 글루 1.5:1 GR 1~2dB(다이내믹 유지)', sat:'없음~아주 살짝(테이프 2~3%)', width:'매우 넓게 — 현 좌우, 금관 뒤, 보컬 정중앙 모노'},
     // 팝 계열
     pop:     {rev:'리드 Plate 1.2s 18% · 드럼 Room 0.6s 10%', dly:'1/8 스로우 · fb 15% · 12%', eq:'프레즌스 3~5kHz +2dB · 브라이트', comp:'리드 3:1 A5 R80 · 드럼 병렬 8:1 GR12', sat:'마스터 새추 살짝', width:'넓게(코러스 와이드)'},
     ballad:  {rev:'리드 Plate 1.8s 22% · 현 Hall 2.8s 30%', dly:'1/8 · fb 15% · 12%', eq:'250Hz -2dB(따뜻) · 5kHz +1.5dB', comp:'2.5:1 A10 R120 젠틀 · GR 3~4dB', sat:'없음~살짝', width:'넓게 · 다이내믹 여유'},
@@ -4366,8 +4447,21 @@
     const spaceMul=(LYRIC_G.has(gsel)||CINE.has(gsel)||['classic','quartal','newage'].indexOf(gsel)>=0)?1.3:1; // 앰비언트/오케=공간 넓게
     const rv=(base)=>Math.round(base*spaceMul*10)/10;
     const L=[]; const blk=(head,lines)=>{ L.push('  ['+head+']'); lines.forEach(x=>L.push('     '+x)); };
-    if(INST.melody.on){ const wind=(melVoiceOf&&melVoiceOf()==='winds'), bow=(melVoiceOf&&melVoiceOf()==='strings');
-      blk('Melody ch5  (가이드 — 내 멜로디로 교체/뮤트)', [
+    if(INST.melody.on){ const wind=(melVoiceOf&&melVoiceOf()==='winds'), bow=(melVoiceOf&&melVoiceOf()==='strings'); const voc=(INST.melody.gm===54);
+      if(voc){ const V=vocOf(); const solo=(vocType!=='duet');
+        blk((solo?('Vocal ch5  ('+V.name+' 보컬 가이드 — 내 노래로 교체/뮤트)'):'Vocal 1 ch5  (남성 — 듀엣 리드)'), [
+        '음원(Instrument 슬롯): 임시 가이드(Voice Oohs). 실제 녹음으로 대체하세요 — 음역 '+(solo?V.tess:VOC.male.tess)+'(자동 정리됨)',
+        'EQ(Channel EQ): Band1 HPF 100Hz · Band3 250Hz -2dB(탁함) · Band5 3~5kHz +2dB(가사 전달) · Band7 하이셸프 12kHz +1dB(공기)',
+        '컴프(Comp): 3:1 · Attack 5ms · Release 80ms · GR 4~6dB (노래는 두 단계 — 4:1 GR3 + 2:1 GR2 권장)',
+        '센드(Sends→Bus): Plate '+rv(1.4)+'s, 18% (predelay 15ms) · 1/4 딜레이 fb 12%는 구절 끝에만',
+        '자리: 팬 정중앙 · 반주(현·금관)에서 2~4kHz를 -1.5dB 깎아 보컬 자리를 비울 것']);
+        if(vocType==='duet') blk('Vocal 2  (여성 — 듀엣 파트너)', [
+          '음원(Instrument 슬롯): 임시 가이드(Voice Oohs) → 실제 녹음으로 대체 — 음역 '+VOC.female.tess,
+          '파트 배분: 벌스 앞 4마디=남성 · 뒤 4마디=여성 · 후렴/하이라이트=둘이 옥타브로 함께 · 간주/아웃트로=테마만',
+          'EQ(Channel EQ): Band1 HPF 120Hz · Band3 300Hz -2dB · Band5 3~5kHz +2dB · Band7 12kHz +1dB',
+          '컴프(Comp): 3:1 · Attack 5ms · Release 80ms · GR 4~6dB',
+          '센드(Sends→Bus): Plate '+rv(1.4)+'s, 18% · 팬 정중앙(남성과 같은 자리, 음역이 옥타브 위라 안 겹침)']); }
+      else blk('Melody ch5  (가이드 — 내 멜로디로 교체/뮤트)', [
         '음원(Instrument 슬롯): '+(wind?'Flute/Oboe (Studio Horns·LABS)':(bow?'Solo Strings (BBC SO Discover)':'Felt Piano (LABS Soft Piano)')),
         'EQ(Channel EQ): HPF 80Hz · 250Hz -1.5dB · 3~5kHz +2dB(존재감) · 12kHz +1dB(공기)',
         '컴프(Comp): 2.5:1 · Attack 5ms · Release 80ms · GR 3~4dB',
@@ -4450,6 +4544,8 @@
     L.push('■ 곡 정보');
     L.push('   장르 '+G[gsel].name+'  |  조성 '+noteName(tonic)+' '+km+'  |  템포 '+Math.round(bpm)+' BPM  |  박자 '+currentSig+(len?('  |  길이 ≈ '+fmt(len)):''));
     L.push('   구조  '+currentSong.map(s=>s.label).join(' → '));
+    if(INST.melody.on && INST.melody.gm===54){ const V=vocOf();
+      L.push('   보컬: '+V.name+'  |  음역 '+V.tess+'  |  권장 조성 '+V.keys); }
     L.push('   트렌드: '+trendNote());
     L.push('');
     L.push('──────────────────────────────────────────────────');
@@ -4552,6 +4648,17 @@
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1200);
   }
   function applyGenreInst(){ INST.brass.on=false; INST.harp.on=false; // 기본 off, 장르가 켬
+    if(gsel==='epicaeol'){ // 오케스트라 에이올리안(노래곡): 현+금관 섹션+콘트라베이스가 받치고, 멜로디는 보컬 가이드
+      INST.piano.on=true; INST.piano.gm=0;
+      INST.strings.on=true; INST.strings.gm=48;
+      INST.brass.on=true; INST.brass.gm=61; // 브라스 섹션 전체(호른·트롬본·트럼펫) — 후렴 폭발
+      INST.harp.on=true; INST.harp.gm=46;   // 하프: 전환을 매끄럽게 잇는 글리산도/아르페지오
+      INST.winds.on=false;
+      INST.bass.on=true; INST.bass.gm=43;   // 콘트라베이스(오케)
+      INST.drums.on=true;
+      INST.melody.on=true; INST.melody.gm=54; // 보컬 가이드
+      counterOn=true;                        // 첼로 대선율이 노래를 받침
+      return; }
     if(gsel==='newage'){ INST.drums.on=false; INST.bass.on=false; INST.piano.on=true; INST.melody.on=true; INST.melody.gm=0; INST.strings.on=false; INST.winds.on=false; }
     else if(CINE.has(gsel)){ INST.drums.on=false; INST.bass.on=false; INST.strings.on=true; INST.strings.gm=(gsel==='cineTension')?44:48; // 긴장=트레몰로 스트링
       INST.brass.on=true; INST.brass.gm=60; INST.harp.on=(gsel!=='cineTension'); INST.harp.gm=46;
@@ -4575,6 +4682,7 @@
     });
     $('instGrid').innerHTML=h;
     renderTransportInsts();
+      try{ syncVocUI(); }catch(e){}
   }
   function renderTransportInsts(){ const box=$('pcInsts'); if(!box) return;
     box.innerHTML=Object.keys(INST).map(k=>{ const g=INST[k]; return '<span class="pc-ichip'+(g.on?' on':'')+'" data-tinst="'+k+'">'+g.emoji+' '+g.label+'</span>'; }).join('');
@@ -4670,6 +4778,12 @@
   { const sb=$('seventhBoost'); if(sb) sb.addEventListener('change',e=>{ seventhBoost=e.target.checked; if(typeof songState!=='undefined'&&songState) stopSong(); if(loopState){ const pi=loopState.id.slice(5); stopGroove(); } renderOut(); if(currentSong&&currentSong.length) renderSong(); if($('scoreView')&&$('scoreView').style.display!=='none') renderScore(); }); }
   { const he=$('harmExtend'); if(he) he.addEventListener('change',e=>{ harmExtend=e.target.checked; if($('themeMsg'))$('themeMsg').textContent=harmExtend?'화성 확장 켜짐 — 테마/곡을 새로 만들면 반영됩니다':''; }); }
   { const co=$('counterOn'); if(co) co.addEventListener('change',e=>{ counterOn=e.target.checked; if(typeof songState!=='undefined'&&songState){ stopSong(); playSong(); } if($('themeMsg')&&counterOn)$('themeMsg').textContent='대선율 켜짐 — 현 악기가 대위 선율을 연주합니다'; }); }
+  { const vs=$('vocSel'); if(vs) vs.addEventListener('change',e=>{ vocType=e.target.value;
+      const V=vocOf(); if($('themeMsg'))$('themeMsg').textContent='보컬: '+V.name+' — 음역 '+V.tess+' · 권장 조성 '+V.keys;
+      if(currentSong && currentSong.length) makeSongUnified(); }); }
+  function syncVocUI(){ const vs=$('vocSel'), vl=$('vocLab'); const show=(INST.melody.on && INST.melody.gm===54); // 보컬 가이드일 때만 노출
+    if(vs) vs.style.display=show?'':'none'; if(vl) vl.style.display=show?'':'none'; if(vs) vs.value=vocType; }
+
   { const ms=$('modSel'); if(ms) ms.addEventListener('change',e=>{ modChoice=e.target.value; if($('themeMsg'))$('themeMsg').textContent='전조: '+({auto:'자동',0:'없음',2:'온음↑',1:'반음↑','-1':'반음↓'}[e.target.value])+' — 곡을 새로 만들면 반영'; }); }
   { const bs=$('buildupSel'); if(bs) bs.addEventListener('change',e=>{ buildupPreset=e.target.value; if($('themeMsg'))$('themeMsg').textContent='빌드업: '+e.target.options[e.target.selectedIndex].text+' — 곡을 새로 만들면 반영 (섹션 L칩으로 미세 조절)'; }); }
   { const pv=$('pivotOn'); if(pv) pv.addEventListener('change',e=>{ pivotOn=e.target.checked; }); }
