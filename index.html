@@ -877,7 +877,7 @@
         {name:'콰탈 상행', mode:'modal', steps:[['I4',0,'q4'],['II4',2,'q4'],['IV4',5,'q4'],['V4',7,'q4']],
           feel:'4도 스택이 <b>단계적으로 상승</b> — 열린 채 차오르는 느낌.',
           theory:'근음이 도리안/믹솔리디안 음계를 따라 상행. 3도가 없어 장·단을 정하지 않습니다.'},
-        {name:'소 왓풍 (반음 이동)', mode:'modal', steps:[['I4',0,'q4w'],['♭II4',1,'q4w']],
+        {name:'소 왓풍 (반음 이동)', mode:'modal', scale:'dorian', steps:[['I4',0,'q4w'],['♭II4',1,'q4w']],
           feel:'같은 콰탈 보이싱을 <b>반음 위로</b> — 마일스 "So What"의 대표 음향.',
           theory:'단조 7화음을 4도 적층으로 보이싱해 반음 평행 이동. 모달 재즈의 상징적 콰탈 사운드.'},
         {name:'펜타토닉 콰탈', mode:'modal', steps:[['I4',0,'q4'],['♭III4',3,'q4'],['IV4',5,'q4'],['♭VII4',10,'q4']],
@@ -1174,7 +1174,8 @@
   const MODE_SCALE={ dorian:[0,2,3,5,7,9,10], phrygian:[0,1,3,5,7,8,10], lydian:[0,2,4,6,7,9,11], mixolydian:[0,2,4,5,7,9,10], doubleharm:[0,1,4,5,7,8,11], hungarian:[0,2,3,6,7,8,11], phrygdom:[0,1,4,5,7,8,10] };
   const HARM_MIN=new Set(['classic','tango','gypsy']); // 리딩톤(화성단조) 유지 — 클래식·탱고·집시. 그 외 단조는 자연단조(에이올리안, ♭7·♭6)
   const CINE=new Set(['cineTension','cineSoar','cineSorrow','cineJoy']); // 시네마틱(무드) — 오케스트라 트랙 추가
-  function progScale(p){ if(p.scale==='pentatonic') return [0,3,5,7,10]; if(p.scale==='phrygdom') return [0,1,4,5,7,8,10]; if(p.scale==='dorian') return [0,2,3,5,7,9,10]; if(p.scale==='majpenta') return [0,2,4,7,9]; if(p.scale==='lydian') return [0,2,4,6,7,9,11]; if(MODE_SCALE[gsel]) return MODE_SCALE[gsel]; if(p.mode==='minor') return HARM_MIN.has(gsel)?[0,2,3,5,7,8,11]:[0,2,3,5,7,8,10]; return [0,2,4,5,7,9,11]; }
+  const MODES7={ ionian:[0,2,4,5,7,9,11], dorian:[0,2,3,5,7,9,10], phrygian:[0,1,3,5,7,8,10], lydian:[0,2,4,6,7,9,11], mixolydian:[0,2,4,5,7,9,10], aeolian:[0,2,3,5,7,8,10], locrian:[0,1,3,5,6,8,10] };
+  function progScale(p){ if(p.scale==='pentatonic') return [0,3,5,7,10]; if(p.scale==='phrygdom') return [0,1,4,5,7,8,10]; if(p.scale==='majpenta') return [0,2,4,7,9]; if(MODES7[p.scale]) return MODES7[p.scale]; if(MODE_SCALE[gsel]) return MODE_SCALE[gsel]; if(p.mode==='minor') return HARM_MIN.has(gsel)?[0,2,3,5,7,8,11]:[0,2,3,5,7,8,10]; return [0,2,4,5,7,9,11]; }
   function melodyGuideHTML(p){
     const sc=progScale(p), scN=sc.map(i=>noteName((tonic+i)%12,''));
     const rows=p.steps.map(st=>{ const iv=Q[st[2]]?Q[st[2]].iv:[0,4,7];
@@ -2464,6 +2465,20 @@
     '8/8 (3+3+2)':{grid:[3,0,0,2,0,0,2,0], beats:3, groups:[3,3,2]},
     '10/8 (3+2+3+2)':{grid:[3,0,0,2,0,2,0,0,2,0], beats:4, groups:[3,2,3,2]}
   };
+  function inferModalScale(p){ // 모달 진행인데 scale이 없으면: 실제 코드톤을 모두 담는 선법을 추론(장조 폴백 방지)
+    const steps=(p&&p.steps)||[]; if(!steps.length) return null;
+    const pcs=new Set();
+    steps.forEach(st=>{ const q=(Q[st[2]]&&Q[st[2]].iv)||[0,4,7]; q.forEach(x=>pcs.add(((((st[1]+x)%12)+12)%12))); });
+    const q0=steps[0][2]||'maj';
+    const minorish=/^(min|dim|m7b5)/.test(q0), quartal=/^q4/.test(q0);
+    const order = quartal ? ['dorian','aeolian','phrygian','mixolydian'] : (minorish ? ['dorian','aeolian','phrygian'] : ['mixolydian','ionian','lydian']);
+    let best=null, bestN=-1;
+    order.forEach(nm=>{ const sc=MODES7[nm]; let n=0; pcs.forEach(pc=>{ if(sc.indexOf(pc)>=0) n++; });
+      if(n>bestN){ bestN=n; best=nm; } }); // 동점이면 우선순위 앞쪽(장르 성격에 맞는 선법)
+    return best; }
+  function normalizeModalScales(){ // 앱 시작 시 1회: mode='modal'인데 scale 없는 진행에 선법을 확정
+    Object.keys(G).forEach(g=>{ (G[g].progs||[]).forEach(p=>{
+      if(p.mode==='modal' && !p.scale && !MODE_SCALE[g]){ const nm=inferModalScale(p); if(nm) p.scale=nm; } }); }); }
   function meterOf(){ return METER[currentSig]||METER['4/4']; }
   function meterBeatPos(){ const M=meterOf(), L=M.grid.length; return M.grid.map((v,i)=>v>=2?i/L:-1).filter(x=>x>=0); } // 강박(그룹 시작) pos
   function meterEighth(){ const M=meterOf(), L=M.grid.length; return M.grid.map((v,i)=>i/L); } // 모든 8분 격자 pos
@@ -2498,20 +2513,26 @@
   function newMotif(){ currentMotif=RHYTHM_SEEDS[Math.floor(Math.random()*RHYTHM_SEEDS.length)].slice();
     songMotif={con:HOOK_CON[Math.floor(Math.random()*HOOK_CON.length)].slice(), seed:(Math.random()*0x7fffffff)>>>0};
     pickSongTheme(); } // 곡 테마 모티프(16분 4연음) 확정
+  const COLOR_PURE=new Set(['classic','kids','gugak','quartal','lyricPenta','lyricMinyo','lyricMid','folk','celtic','shanty']); // 순수함이 스타일 — 블루·이끔음 색 금지
+  const COLOR_BLUE=new Set(['blues','rock','neosoul','jazz','lofi','citypop','pop','edm']); // 블루 ♭3·♭7이 어울리는 장르
   function colorMelody(mel, opts){ if(!mel||mel.length<2) return mel; opts=opts||{};
     const RND=(opts.rseed!=null)?(function(){let s2=((opts.rseed>>>0)||7);return function(){s2=(1664525*s2+1013904223)>>>0;return s2/4294967296;};})():Math.random;
     const tpc=((opts.tonicPc%12)+12)%12, minor=!!opts.minor;
+    // 장르별 색깔음 정책: 선법·클래식·전통·펜타토닉은 '순수함'이 스타일 → 블루·이끔음 금지, 반음 경과도 최소
+    const modal=(keyMode==='modal')||!!MODE_SCALE[gsel];
+    const pure=COLOR_PURE.has(gsel)||modal;
+    const blue=COLOR_BLUE.has(gsel)&&!modal; // 블루 ♭3·♭7이 어울리는 장르에서만
     const a=mel.map(n=>({...n,t:n.bar+n.pos})).sort((x,y)=>x.t-y.t);
     for(let i=0;i<a.length;i++){ const n=a[i], nx=a[i+1]; const weak=!(Math.abs(n.pos-0)<0.06||Math.abs(n.pos-0.5)<0.06);
       if(!weak || !nx) continue; const dur=n.dur||0.25; if(dur>0.4) continue; // 짧은 약박만(경과·꾸밈)
       const pc=((n.midi%12)+12)%12, npc=((nx.midi%12)+12)%12;
-      // 1) 단조: b7 → 이끔음(장7)으로 올려 으뜸으로 상행 (멜로딕 마이너 색)
-      if(minor && pc===(tpc+10)%12 && npc===tpc && nx.midi>n.midi && RND()<0.4){ n.midi+=1; continue; }
-      // 2) 장조: 으뜸으로 가는 약박에 b7(믹솔리디안) 색 / 3도 자리에 b3(블루) — 살짝
-      if(!minor && pc===(tpc+11)%12 && npc===tpc && RND()<0.28){ n.midi-=1; continue; } // maj7 → b7
-      if(!minor && pc===(tpc+4)%12 && RND()<0.20){ n.midi-=1; continue; } // 3 → b3 (블루 인플렉션)
-      // 3) 온음 이동을 반음 이끔음으로(어느 조성이든 색 추가): |diff|==2면 다음 음 반음 앞으로
-      if(Math.abs(nx.midi-n.midi)===2 && RND()<0.3){ n.midi = nx.midi + (nx.midi>n.midi?-1:1); continue; }
+      // 1) 단조: b7 → 이끔음(장7)으로 올려 으뜸으로 상행 (멜로딕 마이너 색) — 선법·펜타는 이끔음이 없어야 하므로 제외
+      if(minor && !pure && pc===(tpc+10)%12 && npc===tpc && nx.midi>n.midi && RND()<0.4){ n.midi+=1; continue; }
+      // 2) 장조: 으뜸으로 가는 약박에 b7(믹솔리디안) 색 / 3도 자리에 b3(블루) — 블루 어울리는 장르에서만
+      if(!minor && blue && pc===(tpc+11)%12 && npc===tpc && RND()<0.28){ n.midi-=1; continue; } // maj7 → b7
+      if(!minor && blue && pc===(tpc+4)%12 && RND()<0.20){ n.midi-=1; continue; } // 3 → b3 (블루 인플렉션)
+      // 3) 온음 이동을 반음 이끔음으로: 순수 장르는 최소(선법 색을 뭉개지 않게)
+      if(Math.abs(nx.midi-n.midi)===2 && RND()<(pure?0.02:0.3)){ n.midi = nx.midi + (nx.midi>n.midi?-1:1); continue; } // 선법·클래식은 반음이 색을 흐리므로 최소
     }
     return a.map(({bar,pos,midi,dur})=>({bar,pos,midi,dur}));
   }
@@ -2605,6 +2626,8 @@
     const cellFor=(si2,isLast)=>{ if(isLast||((si2+1)%4===0)) return cellB.slice(); return ((si2%4)===1?cellA2:cellA).slice(); };
     let motif=null, mel=[], prev=72;
     let pTens=calm?0.12:(flashy?0.26:0.17), pApp=calm?0.05:(flashy?0.10:0.07), pChrom=calm?0.02:(flashy?0.09:0.045); // 텐션·전타음·반음접근(고강도만 소폭 상향, calm 불변)
+    // 순수 장르(선법·클래식·전통·펜타토닉): 반음이 선법 색을 흐리므로 전타음·반음접근 억제 — 스케일 그대로의 울림 유지
+    if((typeof COLOR_PURE!=='undefined' && COLOR_PURE.has(gsel)) || (typeof MODE_SCALE!=='undefined' && MODE_SCALE[gsel]) || (typeof keyMode!=='undefined' && keyMode==='modal')){ pApp=Math.min(pApp,0.03); pChrom=Math.min(pChrom,0.015); }
     if(pianoNA){ // 아르페지오 변환: 화성만 뉴에이지인데 선율이 재즈틱해지지 않도록, 색 강도에 맞춰 멜로디 재즈감(텐션·반음접근) 억제
       if(naLevel<=1){ pTens=0; pApp=0.03; pChrom=0; }                              // 은은: 텐션·반음 없음 — 순수 스케일 선율
       else if(naLevel===2){ pTens=Math.min(pTens,0.06); pApp=Math.min(pApp,0.04); pChrom=0; } // 따뜻: 텐션 소량, 반음접근 없음
@@ -2612,7 +2635,9 @@
     }
     const tensFor=(rs,q)=>{ const base=(tonic+rs); let ts;
       if(q==='maj'||q==='maj7'||q==='add9') ts=[2,9]; else if(q==='min'||q==='min7'||q==='madd9') ts=[2,5]; else if(q==='dom7') ts=[2,9]; else if(q==='m7b5') ts=[5]; else ts=[2];
-      return ts.map(t=>(((base+t)%12)+12)%12); }; // 9·11·13(어보이드 제외)
+      // 텐션은 코드 근음 기준으로 계산되므로 조성/선법 밖으로 나갈 수 있다 → 현재 스케일 음만 남김
+      // (예: 도리안의 ♮6 화음이나 ii화음의 9도가 ♮7·♭6·♮3을 만들어 선법을 깨뜨림)
+      return ts.map(t=>(((base+t)%12)+12)%12).filter(pc=>scPc.indexOf(pc)>=0); }; // 9·11·13(어보이드·조성밖 제외)
     const frac2Chrom=(pos,pb,nb)=>{ const mid=(pb+nb)/2; return pos>mid; }; // 그룹 후반 약박(다음 강박 근접)만 반음접근
     steps.forEach((st,si)=>{
       const iv=Q[st[2]]?Q[st[2]].iv:[0,4,7];
@@ -4864,7 +4889,7 @@
 
   function stopPad(){} // 패드 생성기 제거됨(no-op)
 
-  $('tonic').value=0; fillSigs(); renderInst(); renderGenres(); setUserBpm(rhythmBpm(),false); updateKeyToggle(); renderOut();
+  normalizeModalScales(); $('tonic').value=0; fillSigs(); renderInst(); renderGenres(); setUserBpm(rhythmBpm(),false); updateKeyToggle(); renderOut();
 })();
 </script>
 </body>
