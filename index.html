@@ -549,7 +549,7 @@
           feel:'이끔음 없는 v로 긴장을 누르고 하행하는 — 끝없이 잦아드는 명상적 진행이에요.',
           theory:'에이올리안 v(단3화음)는 이끔음이 없어 추진력 대신 색을 줍니다. VI·iv로 무게를 더해 잔잔히 가라앉아요.'},
       ]},
-    lyricPenta:{name:'펜타토닉', note:'반음 없는 5음 — 대금·가야금 산조의 투명한 동양색',
+    lyricPenta:{name:'펜타토닉 (단5음)', note:'반음 없는 단5음(1·♭3·4·5·♭7) — 투명하고 트인 울림',
       progs:[
         {name:'펜타토닉 (5음 무반음)', mode:'minor', scale:'pentatonic', steps:[['i',0,'min'],['♭VII',10,'sus2'],['iv',5,'sus4'],['♭III',3,'maj']],
           feel:'반음 없는 5음계 — 대금·가야금 산조처럼 트이고 투명한 동양적 울림이에요.',
@@ -561,7 +561,7 @@
           feel:'♭2와 장3 사이 증2도가 만드는 이국적 긴장 — 아랍·집시풍의 강렬한 동양색이에요.',
           theory:'프리지안 도미넌트(1·♭2·3·4·5·♭6·♭7). ♭II→I의 반음 하행과 증2도가 중동·플라멩코 특유의 색을 냅니다.'},
       ]},
-    lyricMinyo:{name:'밝은 민요', note:'밝은 5음 — 동요·민요의 환하고 정겨운 색',
+    lyricMinyo:{name:'펜타토닉 (장5음)', note:'반음 없는 장5음(1·2·3·5·6) — 환하고 정겨운 색',
       progs:[
         {name:'메이저 펜타 (밝은 민요)', mode:'major', scale:'majpenta', steps:[['I',0,'maj'],['vi',9,'min'],['V',7,'sus2'],['I',0,'maj']],
           feel:'반음 없는 밝은 5음계 — 동요·민요처럼 환하고 정겨운 울림이에요.',
@@ -3552,7 +3552,7 @@
   let songTheme=null;
   function pickSongTheme(){ let s2=((((songMotif?songMotif.seed:1)>>>0)^0x9e3779b9)>>>0)||7;
     const rnd=()=>{ s2=(1664525*s2+1013904223)>>>0; return s2/4294967296; };
-    songTheme={ kind:THEME_KINDS[Math.floor(rnd()*THEME_KINDS.length)], every:(rnd()<0.35?2:1) }; // every=1: 매 박 반복, 2: 두 박마다
+    songTheme={ kind:THEME_KINDS[Math.floor(rnd()*THEME_KINDS.length)], every:(rnd()<0.35?2:1), sub:(rnd()<0.4?3:4) }; // every=1: 매 박 반복 · sub=4: 16분 4연음, 3: 8분 셋잇단 3연음
     try{ window.songTheme=songTheme; }catch(e){}
     return songTheme; }
   function themeKindName(k){ return {down:'하행',up:'상행',updown:'상하행',downup:'하상행'}[k]||''; }
@@ -3576,15 +3576,16 @@
     if(kind==='updown') return [root,t3,t5,t3];
     return [oc,t5,t3,t5]; } // downup
   function themeFig(c,kind){ return themeFigN(c,kind,4); }
-  function themeDesc(){ if(!songTheme) return ''; const sl=themeSlots(); const tri=sl.some(x=>x.eighths===3);
-    return themeKindName(songTheme.kind)+(tri?' 8분음표 3연음':' 16분음표 4연음'); }
+  function themeDesc(){ if(!songTheme) return ''; const sl=themeSlots(); const comp=sl.some(x=>x.eighths===3);
+    if(comp) return themeKindName(songTheme.kind)+' 8분음표 3연음(복합박)';
+    return themeKindName(songTheme.kind)+((songTheme.sub===3)?' 8분음표 셋잇단 3연음':' 16분음표 4연음'); }
   function emitTheme(ev,T,c,measure,o){ // 테마 방출(1st 피아노=인트로/간주/아웃트로, 2nd 피아노=상시 은은)
     if(!songTheme||!c||!c.notes||!c.notes.length) return;
     o=o||{}; const slots=themeSlots(), L=meterOf().grid.length, eTick=measure/L; // 8분 1칸 틱
     const every=Math.max(1,o.every||1), baseV=o.baseV||44, oct=o.octShift||0;
     slots.forEach((sl,bi)=>{
       if(bi%every!==0) return;
-      const n=(sl.eighths===3)?3:4; // 복합박(8분 3개)=8분 3연음 · 단순박=16분 4연음
+      const n=(sl.eighths===3)?3:(((o.sub||songTheme.sub||4)===3)?3:4); // 복합박=8분 3연음 · 단순박=16분 4연음 또는 8분 셋잇단(3연음)
       const fig=themeFigN(c, songTheme.kind, n); if(!fig) return;
       const span=sl.eighths*eTick, unit=span/n; // 3연음: 8분 하나씩 · 16분: 사분박을 4등분
       const HI=o.hiClamp||88, LO=o.loClamp||40;
@@ -4148,8 +4149,8 @@
               const tBars=nsteps.length*sec.reps, bIdx=r*nsteps.length+si, left=tBars-1-bIdx;
               const isBuild=(sec.label==='간주') && left<=1 && nextHot; // 간주 마지막 2마디 = 빌드업 → 다음 섹션에서 터짐
               const stg=sec.stage||3; const baseV=Math.max(40,Math.min(96,Math.round((52+stg*6)*inA)));
-              const soloG=LYRIC_G.has(gsel)||pianoNA; // 독주곡: 테마 오스티나토가 과밀하지 않게 절반 밀도 + 마디마다 옥타브로 변화
-              emitTheme(ev,T,c,measure,{ baseV:baseV, build:isBuild, buildPos:(isBuild?Math.min(1,(bIdx-(tBars-2))/1):0), every:(isBuild?1:(soloG?Math.max(2,songTheme.every||1):(songTheme.every||1))), lowRoot:true, octShift:(soloG&&(bIdx%2===1))?1:0 });
+              const soloG=LYRIC_G.has(gsel)||pianoNA; // 독주곡: 오스티나토 반복이 인트로의 성격 → 매 박 반복 + 마디마다 옥타브로 변화
+              emitTheme(ev,T,c,measure,{ baseV:baseV, build:isBuild, buildPos:(isBuild?Math.min(1,(bIdx-(tBars-2))/1):0), every:(isBuild||soloG)?1:(songTheme.every||1), lowRoot:true, octShift:(soloG&&(bIdx%2===1))?1:0 });
             } else {
             if(pedalOn){ if(T===PAD){ ev.push({tick:T,cc:64,val:127}); } else { ev.push({tick:T+18,cc:64,val:0}); ev.push({tick:T+24,cc:64,val:127}); } } // 첫 마디는 다운비트 전에 페달(앞 공백 PAD 고려) // 레가토 페달: 코드 친 직후 교체
             const slots=(dens==='sparse'?comp.filter(s=>s%8===0):comp).filter(sl=>!(brkBar&&sl>=8));
